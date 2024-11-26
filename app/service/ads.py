@@ -1,6 +1,7 @@
 from app.crud.ads import (
-    select_ads_list as crud_select_ads_list,
-    select_ads_init_info as crud_select_ads_init_info
+    select_ads_init_info as crud_select_ads_init_info,
+    insert_ads as crud_insert_ads,
+    insert_ads_image as crud_insert_ads_image,
 )
 from app.schemas.ads import(
     AdsInitInfoOutPut, AdsInitInfo, WeatherInfo
@@ -27,18 +28,6 @@ load_dotenv()
 api_key = os.getenv("GPT_KEY")
 client = OpenAI(api_key=api_key)
 
-
-# ADS 리스트 조회
-def select_ads_list():
-    try:
-        return crud_select_ads_list()
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Service loc_store_content_list Error: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Service loc_store_content_list Error: {str(e)}"
-        )
 
 # 초기 데이터 가져오기
 def select_ads_init_info(store_business_number: str) -> AdsInitInfoOutPut:
@@ -729,9 +718,6 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     store_name_x = 10
     store_name_y = image_height - (image_height / 13) # 분모가 작을수록 하단에 더 멀게
     draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill="white")
-
-    
-
     # 이미지 메모리에 저장
     buffer = BytesIO()
     image.save(buffer, format="PNG")
@@ -742,3 +728,10 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
 
     return f"data:image/png;base64,{base64_image}"
 
+# DB 저장
+def insert_ads(store_business_number: str, use_option: str, title: str, detail_title: str, content: str, image_url: str):
+    # 글 먼저 저장
+    ads_pk = crud_insert_ads(store_business_number, use_option, title, detail_title, content)
+
+    # 글 pk 로 이미지 저장
+    crud_insert_ads_image(ads_pk, image_url)

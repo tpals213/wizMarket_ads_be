@@ -1,5 +1,5 @@
 from fastapi import (
-    APIRouter, UploadFile, File, Form, HTTPException
+    APIRouter, UploadFile, File, Form, HTTPException, status
 )
 from app.schemas.ads import (
     AdsList, AdsInitInfoOutPut,
@@ -11,11 +11,11 @@ from PIL import Image
 import logging
 from typing import List
 from app.service.ads import (
-    select_ads_list as service_select_ads_list,
     select_ads_init_info as service_select_ads_init_info,
     combine_ads as service_combine_ads,
     generate_content as service_generate_content,
     generate_image as service_generate_image,
+    insert_ads as service_insert_ads,
     combine_ads_ver1 as service_combine_ads_ver1
 )
 from pathlib import Path
@@ -32,25 +32,6 @@ REPORT_PATH = Path(os.getenv("REPORT_PATH"))
 IMAGE_DIR = Path(os.getenv("IMAGE_DIR"))
 FULL_PATH = REPORT_PATH / IMAGE_DIR.relative_to("/") / "ads"
 FULL_PATH.mkdir(parents=True, exist_ok=True)
-
-# ADS 리스트 조회
-@router.get("/select/list", response_model=List[AdsList])
-def select_ads_list():
-    try:
-        # 서비스에서 데이터를 가져와 result 변수에 저장
-        result: AdsList = service_select_ads_list()
-        return result  # result를 반환
-
-    except HTTPException as http_ex:
-        # service 계층에서 발생한 HTTP 예외는 그대로 전달
-        logger.error(f"HTTP error occurred: {http_ex.detail}")
-        raise http_ex
-
-    except Exception as e:
-        # 예상치 못한 에러
-        error_msg = f"Unexpected error while processing request: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
 
 
 # 매장 리스트에서 모달창 띄우기
@@ -133,7 +114,7 @@ def generate_image(request: AdsImageRequest):
 #     # JSON 응답으로 두 이미지를 반환
 #     return JSONResponse(content={"images": [image_1, image_2]})
 
-
+# ADS 텍스트, 이미지 합성
 @router.post("/combine/image/text")
 def combine_ads(
     store_name: str = Form(...),
@@ -152,3 +133,66 @@ def combine_ads(
 
     # JSON 응답으로 Base64 이미지 반환
     return JSONResponse(content={"image": base64_image})
+
+
+# ADS DB에 저장
+@router.post("/insert")
+def insert_ads(
+    store_business_number: str = Form(...),
+    use_option: str = Form(...),
+    title: str = Form(...),
+    detail_title: Optional[str] = Form(None),  # 선택적 필드
+    content: str = Form(...),
+    image: UploadFile = File(None)  # 단일 이미지 파일
+):
+    # 이미지 파일 처리
+    image_url = None
+    try:
+        if image:
+            # 고유 이미지 명 생성
+            filename, ext = os.path.splitext(image.filename)
+            unique_filename = f"{filename}_jyes_{uuid.uuid4()}{ext}"
+
+            # 파일 저장 경로 지정
+            file_path = FULL_PATH / unique_filename
+
+            # 파일 저장
+            try:
+                with open(file_path, "wb") as buffer:
+                    shutil.copyfileobj(image.file, buffer)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error saving image file: {str(e)}"
+                )
+            
+            # 이미지 URL 생성
+            image_url = f"/static/images/ads/{unique_filename}"
+            # print(image_url)
+        # 데이터 저장 호출
+        try:
+            service_insert_ads(store_business_number, use_option, title, detail_title, content, image_url)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error inserting ad data: {str(e)}"
+            )
+
+    except HTTPException as http_exc:
+        raise http_exc  # 이미 정의된 HTTPException은 그대로 전달
+    except Exception as e:
+        # 기타 예상치 못한 오류 처리
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+
+    # 성공 응답 반환
+    return {
+        "store_business_number": store_business_number,
+        "use_option": use_option,
+        "title": title,
+        "detail_title": detail_title,
+        "content": content,
+        "image_filename": image_url
+    }

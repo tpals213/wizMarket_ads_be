@@ -10,62 +10,8 @@ from app.schemas.ads import AdsList, AdsInitInfo
 from typing import Optional, List
 from pydantic import BaseModel, Field, ValidationError
 
-
 load_dotenv()
 logger = logging.getLogger(__name__)
-
-
-def select_ads_list():
-    connection = get_re_db_connection()
-
-    try:
-        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-            select_query = """
-                SELECT 
-                    a.ADS_ID,
-                    a.STORE_BUSINESS_NUMBER,
-                    r.STORE_NAME,
-                    r.ROAD_NAME,
-                    a.TITLE,
-                    a.CONTENT,
-                    a.STATUS,
-                    a.CREATED_AT
-                FROM
-                    ADS a
-                STRAIGHT_JOIN REPORT r
-                ON r.STORE_BUSINESS_NUMBER = a.STORE_BUSINESS_NUMBER
-                AND a.STATUS != 'D';
-
-            """
-            cursor.execute(select_query)
-            rows = cursor.fetchall()
-            if not rows:
-                raise HTTPException(
-                    status_code=404,
-                    detail="AdsList 해당하는 매장 정보를 찾을 수 없습니다.",
-                )
-            result = [
-                AdsList(
-                    local_store_content_id=row["LOCAL_STORE_CONTENT_ID"],
-                    store_business_number=row["STORE_BUSINESS_NUMBER"],
-                    store_name=row["STORE_NAME"],
-                    road_name=row["ROAD_NAME"],
-                    title=row["TITLE"],
-                    content=row["CONTENT"],
-                    status=row["STATUS"],
-                    created_at=row["CREATED_AT"],
-                )
-                for row in rows
-            ]
-            return result
-    except pymysql.Error as e:
-        logger.error(f"Database error occurred: {str(e)}")
-        raise HTTPException(status_code=503, detail=f"데이터베이스 연결 오류: {str(e)}")
-    except Exception as e:
-        logger.error(f"Unexpected error occurred LocalStoreBasicInfo: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"내부 서버 오류: {str(e)}")
-    finally:
-        close_connection(connection)  # connection만 닫기
 
 
 # 기본 정보 가져오기
@@ -175,3 +121,59 @@ def select_ads_init_info(store_business_number: str) -> AdsInitInfo:
         if connection:
             connection.close()
 
+
+# 글만 먼저 저장 처리
+def insert_ads(store_business_number: str, use_option: str, title: str, detail_title: str, content: str):
+    # 데이터베이스 연결 설정
+    connection = get_re_db_connection()
+    
+    try:
+        with connection.cursor() as cursor:
+            # 데이터 인서트 쿼리
+            insert_query = """
+                INSERT INTO ADS 
+                (STORE_BUSINESS_NUMBER, USE_OPTION, TITLE, DETAIL_TITLE, CONTENT) 
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            # 쿼리 실행
+            cursor.execute(insert_query, (store_business_number, use_option, title, detail_title, content))
+            # 자동 생성된 PK 가져오기
+            pk = cursor.lastrowid
+            # 커밋하여 DB에 반영
+            commit(connection)
+            return pk
+
+    except pymysql.MySQLError as e:
+        rollback(connection)  # 오류 시 롤백
+        print(f"Database error: {e}")
+        raise
+
+    finally:
+        close_cursor(cursor)   # 커서 종료
+        close_connection(connection)  # 연결 종료
+
+
+# 이미지 저장 처리
+def insert_ads_image(ads_pk: int, image_url: str):
+    # 데이터베이스 연결 설정
+    connection = get_re_db_connection()
+    cursor = None
+
+    try:
+        cursor = connection.cursor()
+        # 이미지 저장 쿼리
+        insert_query = """
+            INSERT INTO ADS_IMAGE (ADS_ID, ADS_IMAGE_URL)
+            VALUES (%s, %s)
+        """
+        # 단일 이미지 URL 저장
+        cursor.execute(insert_query, (ads_pk, image_url))
+        
+        commit(connection)
+    except Exception as e:
+        print("Error:", e)
+        rollback(connection)
+    finally:
+        if cursor:
+            close_cursor(cursor)
+        close_connection(connection)
