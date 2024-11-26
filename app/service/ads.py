@@ -616,7 +616,7 @@ def combine_ads_ver1(store_name, road_name, content, image_width, image_height, 
 
 def combine_ads_ver2(store_name, road_name, content, image_width, image_height, image, alignment="center"):
     root_path = os.getenv("ROOT_PATH", ".")
-    sp_image_path = os.path.join(root_path, "app", "image", "new_imo.png") 
+    sp_image_path = os.path.join(root_path, "app", "static", "images", "new_imo.png") 
     
     # RGBA 모드로 변환
     if image.mode != "RGBA":
@@ -643,10 +643,10 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     image.paste(sp_image, (offset_x, offset_y), sp_image)
 
     # 텍스트 설정
-    top_path = os.path.join(root_path, "app", "font", "JalnanGothicTTF.ttf") 
-    bottom_path = os.path.join(root_path, "app", "font", "BMHANNA_11yrs_ttf.ttf") 
-    store_name_path = os.path.join(root_path, "app", "font", "Pretendard-Bold.ttf") 
-    road_name_path = os.path.join(root_path, "app", "font", "Pretendard-R.ttf") 
+    top_path = os.path.join(root_path, "app", "static", "font", "JalnanGothicTTF.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "BMHANNA_11yrs_ttf.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
+    road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     top_font_size = image_width / 20
     bottom_font_size = image_width / 10
     store_name_font_size = image_width / 24
