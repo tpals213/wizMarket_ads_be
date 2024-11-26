@@ -2,6 +2,7 @@ from app.crud.ads import (
     select_ads_init_info as crud_select_ads_init_info,
     insert_ads as crud_insert_ads,
     insert_ads_image as crud_insert_ads_image,
+    delete_status as crud_delete_status
 )
 from app.schemas.ads import(
     AdsInitInfoOutPut, AdsInitInfo, WeatherInfo
@@ -735,3 +736,15 @@ def insert_ads(store_business_number: str, use_option: str, title: str, detail_t
 
     # 글 pk 로 이미지 저장
     crud_insert_ads_image(ads_pk, image_url)
+
+
+# ADS 삭제처리
+def delete_status(ads_id: int):
+    try:
+        # CRUD 레이어에 값을 전달하여 업데이트 작업 수행
+        success = crud_delete_status(ads_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Content not found for updating")
+    except Exception as e:
+        print(f"Service error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")

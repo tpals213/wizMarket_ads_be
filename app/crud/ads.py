@@ -177,3 +177,33 @@ def insert_ads_image(ads_pk: int, image_url: str):
         if cursor:
             close_cursor(cursor)
         close_connection(connection)
+
+
+# ADS 삭제 처리
+def delete_status(ads_id: int) -> bool:
+    connection = get_re_db_connection()
+
+    try:
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            # 업데이트 쿼리 작성
+            delete_query = """
+                UPDATE ADS
+                SET STATUS = 'D'
+                WHERE ADS_ID = %s
+            """
+            # 쿼리 실행
+            cursor.execute(delete_query, (ads_id))
+            connection.commit()
+            
+            # rowcount를 통해 업데이트 성공 여부 확인
+            if cursor.rowcount == 0:
+                return False  # 업데이트된 행이 없는 경우 False 반환
+            return True  # 업데이트 성공 시 True 반환
+    except pymysql.Error as e:
+        logger.error(f"Database error occurred: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"데이터베이스 연결 오류: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error occurred LocStoreDetailContent: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"내부 서버 오류: {str(e)}")
+    finally:
+        connection.close()

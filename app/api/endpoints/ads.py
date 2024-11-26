@@ -4,7 +4,8 @@ from fastapi import (
 from app.schemas.ads import (
     AdsList, AdsInitInfoOutPut,
     AdsGenerateContentOutPut, AdsContentRequest,
-    AdsGenerateImageOutPut, AdsImageRequest
+    AdsGenerateImageOutPut, AdsImageRequest,
+    AdsDeleteRequest
 )
 from fastapi import Request
 from PIL import Image
@@ -16,7 +17,8 @@ from app.service.ads import (
     generate_content as service_generate_content,
     generate_image as service_generate_image,
     insert_ads as service_insert_ads,
-    combine_ads_ver1 as service_combine_ads_ver1
+    combine_ads_ver1 as service_combine_ads_ver1,
+    delete_status as service_delete_status
 )
 from pathlib import Path
 from fastapi.responses import JSONResponse
@@ -196,3 +198,18 @@ def insert_ads(
         "content": content,
         "image_filename": image_url
     }
+
+# ADS 삭제처리
+@router.post("/delete/status")
+def delete_status(request: AdsDeleteRequest):
+    try:
+        # 서비스 레이어를 통해 업데이트 작업 수행
+        success = service_delete_status(
+            request.ads_id,
+        )
+        if success:
+            return success
+    except Exception as e:
+        # 예외 처리
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")

@@ -99,12 +99,6 @@ class LocalStoreInfoWeaterInfoOutput(BaseModel):
         from_attributes = True
 
 
-
-
-
-
-
-
 # 문구 생성
 class AdsContentRequest(BaseModel):
     prompt : str
@@ -128,3 +122,6 @@ class AdsGenerateImageOutPut(BaseModel):
 
 
 
+# ADS 삭제
+class AdsDeleteRequest(BaseModel):
+    ads_id : int
