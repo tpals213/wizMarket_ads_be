@@ -28,9 +28,9 @@ import uuid
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-REPORT_PATH = Path(os.getenv("REPORT_PATH"))
+ROOT_PATH = Path(os.getenv("ROOT_PATH"))
 IMAGE_DIR = Path(os.getenv("IMAGE_DIR"))
-FULL_PATH = REPORT_PATH / IMAGE_DIR.relative_to("/") / "ads"
+FULL_PATH = ROOT_PATH / IMAGE_DIR.relative_to("/") / "ads"
 FULL_PATH.mkdir(parents=True, exist_ok=True)
 
 
