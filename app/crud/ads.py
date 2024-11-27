@@ -154,7 +154,7 @@ def insert_ads(store_business_number: str, use_option: str, title: str, detail_t
 
 
 # 이미지 저장 처리
-def insert_ads_image(ads_pk: int, image_url: str):
+def insert_ads_image(ads_pk: int, image_url: str, final_image_url: str):
     # 데이터베이스 연결 설정
     connection = get_re_db_connection()
     cursor = None
@@ -163,11 +163,11 @@ def insert_ads_image(ads_pk: int, image_url: str):
         cursor = connection.cursor()
         # 이미지 저장 쿼리
         insert_query = """
-            INSERT INTO ADS_IMAGE (ADS_ID, ADS_IMAGE_URL)
-            VALUES (%s, %s)
+            INSERT INTO ADS_IMAGE (ADS_ID, ADS_IMAGE_URL, ADS_FINAL_IMAGE_URL)
+            VALUES (%s, %s, %s)
         """
         # 단일 이미지 URL 저장
-        cursor.execute(insert_query, (ads_pk, image_url))
+        cursor.execute(insert_query, (ads_pk, image_url, final_image_url))
         
         commit(connection)
     except Exception as e:
@@ -207,3 +207,77 @@ def delete_status(ads_id: int) -> bool:
         raise HTTPException(status_code=500, detail=f"내부 서버 오류: {str(e)}")
     finally:
         connection.close()
+
+
+
+# 글만 먼저 수정 처리
+def update_ads(store_business_number: str, use_option: str, title: str, detail_title: str, content: str):
+    # 데이터베이스 연결 설정
+    connection = get_re_db_connection()
+    print(content)
+    try:
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            # 데이터 인서트 쿼리
+            update_query = """
+                UPDATE ADS 
+                SET USE_OPTION = %s, TITLE = %s, DETAIL_TITLE = %s, CONTENT = %s
+                WHERE STORE_BUSINESS_NUMBER = %s 
+            """
+            # 쿼리 실행
+            rows_affected = cursor.execute(update_query, (use_option, title, detail_title, content, store_business_number))
+            if rows_affected > 0:
+                # 업데이트된 행의 ads_id 조회
+                select_query = """
+                    SELECT ADS_ID 
+                    FROM ADS
+                    WHERE STORE_BUSINESS_NUMBER = %s
+                """
+                cursor.execute(select_query, (store_business_number,))
+                result = cursor.fetchone()
+                
+                if result:
+                    ads_id = result['ADS_ID']  # 'ADS_ID'는 테이블 컬럼 이름
+                else:
+                    raise ValueError("No matching record found after update.")
+            else:
+                raise ValueError("No rows were updated.")
+
+            # 커밋하여 DB에 반영
+            connection.commit()
+            return ads_id
+
+    except pymysql.MySQLError as e:
+        rollback(connection)  # 오류 시 롤백
+        print(f"Database error: {e}")
+        raise
+
+    finally:
+        close_cursor(cursor)   # 커서 종료
+        close_connection(connection)  # 연결 종료
+
+
+# 이미지 수정 처리
+def update_ads_image(ads_id: int, image_url: str, final_image_url: str):
+    # 데이터베이스 연결 설정
+    connection = get_re_db_connection()
+    cursor = None
+
+    try:
+        cursor = connection.cursor()
+        # 이미지 저장 쿼리
+        update_query = """
+            UPDATE ADS_IMAGE
+            SET ADS_IMAGE_URL = %s, ADS_FINAL_IMAGE_URL = %s 
+            WHERE ADS_ID = %s
+        """
+        # 단일 이미지 URL 저장
+        cursor.execute(update_query, (image_url, final_image_url, ads_id))
+        
+        commit(connection)
+    except Exception as e:
+        print("Error:", e)
+        rollback(connection)
+    finally:
+        if cursor:
+            close_cursor(cursor)
+        close_connection(connection)

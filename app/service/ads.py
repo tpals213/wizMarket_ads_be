@@ -2,7 +2,9 @@ from app.crud.ads import (
     select_ads_init_info as crud_select_ads_init_info,
     insert_ads as crud_insert_ads,
     insert_ads_image as crud_insert_ads_image,
-    delete_status as crud_delete_status
+    delete_status as crud_delete_status,
+    update_ads as crud_update_ads,
+    update_ads_image as crud_update_ads_image,
 )
 from app.schemas.ads import(
     AdsInitInfoOutPut, AdsInitInfo, WeatherInfo
@@ -119,9 +121,9 @@ def select_ads_init_info(store_business_number: str) -> AdsInitInfoOutPut:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Service loc_store_content_list Error: {str(e)}")
+        logger.error(f"Service ads_list Error: {str(e)}")
         raise HTTPException(
-            status_code=500, detail=f"Service loc_store_content_list Error: {str(e)}"
+            status_code=500, detail=f"Service ads_list Error: {str(e)}"
         )
 
 
@@ -730,12 +732,12 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     return f"data:image/png;base64,{base64_image}"
 
 # DB 저장
-def insert_ads(store_business_number: str, use_option: str, title: str, detail_title: str, content: str, image_url: str):
+def insert_ads(store_business_number: str, use_option: str, title: str, detail_title: str, content: str, image_url: str, final_image_url: str):
     # 글 먼저 저장
     ads_pk = crud_insert_ads(store_business_number, use_option, title, detail_title, content)
 
     # 글 pk 로 이미지 저장
-    crud_insert_ads_image(ads_pk, image_url)
+    crud_insert_ads_image(ads_pk, image_url, final_image_url)
 
 
 # ADS 삭제처리
@@ -748,3 +750,13 @@ def delete_status(ads_id: int):
     except Exception as e:
         print(f"Service error occurred: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+    
+
+
+# ADS 수정 처리
+def update_ads(store_business_number: str, use_option: str, title: str, detail_title: str, content: str, image_url: str, final_image_url: str):
+    # 글 먼저 저장
+    ads_id = crud_update_ads(store_business_number, use_option, title, detail_title, content)
+
+    # 글 pk 로 이미지 저장
+    crud_update_ads_image(ads_id, image_url, final_image_url)

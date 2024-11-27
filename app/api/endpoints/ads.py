@@ -18,13 +18,15 @@ from app.service.ads import (
     generate_image as service_generate_image,
     insert_ads as service_insert_ads,
     combine_ads_ver1 as service_combine_ads_ver1,
-    delete_status as service_delete_status
+    delete_status as service_delete_status,
+    update_ads as service_update_ads,
 )
 from pathlib import Path
 from fastapi.responses import JSONResponse
 import shutil
 from typing import Optional
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 import uuid
 router = APIRouter()
@@ -145,48 +147,72 @@ def insert_ads(
     title: str = Form(...),
     detail_title: Optional[str] = Form(None),  # 선택적 필드
     content: str = Form(...),
-    image: UploadFile = File(None)  # 단일 이미지 파일
+    image: UploadFile = File(None),
+    final_image: UploadFile = File(None)  # 단일 이미지 파일
 ):
     # 이미지 파일 처리
     image_url = None
-    try:
-        if image:
+    if image:
+        try:
             # 고유 이미지 명 생성
             filename, ext = os.path.splitext(image.filename)
-            unique_filename = f"{filename}_jyes_{uuid.uuid4()}{ext}"
+            today = datetime.now().strftime("%Y%m%d")
+            unique_filename = f"{filename}_jyes_ads_{today}_{uuid.uuid4()}{ext}"
 
             # 파일 저장 경로 지정
-            file_path = FULL_PATH / unique_filename
+            file_path = os.path.join(FULL_PATH, unique_filename)
 
             # 파일 저장
-            try:
-                with open(file_path, "wb") as buffer:
-                    shutil.copyfileobj(image.file, buffer)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Error saving image file: {str(e)}"
-                )
-            
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+
             # 이미지 URL 생성
             image_url = f"/static/images/ads/{unique_filename}"
-            # print(image_url)
-        # 데이터 저장 호출
-        try:
-            service_insert_ads(store_business_number, use_option, title, detail_title, content, image_url)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error inserting ad data: {str(e)}"
+                detail=f"Error saving image file: {str(e)}"
             )
 
-    except HTTPException as http_exc:
-        raise http_exc  # 이미 정의된 HTTPException은 그대로 전달
+    # 파이널 이미지 파일 처리
+    final_image_url = None
+    if final_image:
+        try:
+            # 고유 이미지 명 생성
+            filename, ext = os.path.splitext(final_image.filename)
+            today = datetime.now().strftime("%Y%m%d")
+            unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
+
+            # 파일 저장 경로 지정
+            file_path = os.path.join(FULL_PATH, unique_filename)
+
+            # 파일 저장
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(final_image.file, buffer)
+
+            # 파이널 이미지 URL 생성
+            final_image_url = f"/static/images/ads/{unique_filename}"
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error saving final_image file: {str(e)}"
+            )
+
+    # 데이터 저장 호출
+    try:
+        service_insert_ads(
+            store_business_number, 
+            use_option, 
+            title, 
+            detail_title, 
+            content, 
+            image_url, 
+            final_image_url
+        )
     except Exception as e:
-        # 기타 예상치 못한 오류 처리
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {str(e)}"
+            detail=f"Error inserting ad data: {str(e)}"
         )
 
     # 성공 응답 반환
@@ -196,7 +222,8 @@ def insert_ads(
         "title": title,
         "detail_title": detail_title,
         "content": content,
-        "image_filename": image_url
+        "image_url": image_url,
+        "final_image_url": final_image_url
     }
 
 # ADS 삭제처리
@@ -213,3 +240,93 @@ def delete_status(request: AdsDeleteRequest):
         # 예외 처리
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+    
+
+
+# ADS DB에 수정
+@router.post("/update")
+def update_ads(
+    store_business_number: str = Form(...),
+    use_option: str = Form(...),
+    title: str = Form(...),
+    detail_title: Optional[str] = Form(None),  # 선택적 필드
+    content: str = Form(...),
+    image: UploadFile = File(None),
+    final_image: UploadFile = File(None)  # 단일 이미지 파일
+):
+    
+    # 이미지 파일 처리
+    image_url = None
+    if image:
+        try:
+            # 고유 이미지 명 생성
+            filename, ext = os.path.splitext(image.filename)
+            today = datetime.now().strftime("%Y%m%d")
+            unique_filename = f"{filename}_jyes_ads_{today}_{uuid.uuid4()}{ext}"
+
+            # 파일 저장 경로 지정
+            file_path = os.path.join(FULL_PATH, unique_filename)
+
+            # 파일 저장
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+
+            # 이미지 URL 생성
+            image_url = f"/static/images/ads/{unique_filename}"
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error saving image file: {str(e)}"
+            )
+
+    # 파이널 이미지 파일 처리
+    final_image_url = None
+    if final_image:
+        try:
+            # 고유 이미지 명 생성
+            filename, ext = os.path.splitext(final_image.filename)
+            today = datetime.now().strftime("%Y%m%d")
+            unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
+
+            # 파일 저장 경로 지정
+            file_path = os.path.join(FULL_PATH, unique_filename)
+
+            # 파일 저장
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(final_image.file, buffer)
+
+            # 파이널 이미지 URL 생성
+            final_image_url = f"/static/images/ads/{unique_filename}"
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error saving final_image file: {str(e)}"
+            )
+
+    # 데이터 저장 호출
+    try:
+        service_update_ads(
+            store_business_number, 
+            use_option, 
+            title, 
+            detail_title, 
+            content, 
+            image_url, 
+            final_image_url
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating ad data: {str(e)}"
+        )
+
+    # 성공 응답 반환
+    return {
+        "store_business_number": store_business_number,
+        "use_option": use_option,
+        "title": title,
+        "detail_title": detail_title,
+        "content": content,
+        "image_url": image_url,
+        "final_image_url": final_image_url
+    }
