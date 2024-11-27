@@ -667,24 +667,54 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     # 텍스트를 '<br>'로 구분하여 줄 나누기
     # lines = content.split(' ')
     # lines = [re.sub(r'<[^>]+>', '', line).replace('\r', '').replace('\n', '') for line in lines]
-    lines = re.split(r'[.!?,\n]', content)  # 구두점, 쉼표, 줄바꿈 모두 처리
-    lines = [line.strip() for line in lines if line.strip()]
+    lines = re.findall(r'[^.!?,\n]+[.!?,]?', content)
+    lines = [line.strip() for line in lines if line.strip()]  # 공백 제거 및 빈 문자열 제외
     if len(lines) > 0:
         top_line = lines[0].strip()
-        lines_list = split_top_line(top_line, max_length=8)  # 반환값은 리스트
+        lines_list = split_top_line(top_line, max_length=10)  # 반환값은 리스트
+
         # 첫 번째 줄 렌더링 Y 좌표 설정
         top_text_y = image_height / 10
+        line_padding = 5  # 텍스트와 선 사이의 패딩
+
         # 반복적으로 각 줄 렌더링
         for i, line in enumerate(lines_list):
             if line:  # 줄이 존재할 경우만 처리
                 # 텍스트 너비 계산
                 top_text_width = top_font.getbbox(line)[2]
+                top_text_height = top_font.getbbox(line)[3]  # 텍스트 높이 계산
                 # 중앙 정렬 X 좌표 계산
                 top_text_x = (image_width - top_text_width) // 2
-                # 현재 줄 렌더링
+
+                # 텍스트 렌더링
                 draw.text((top_text_x, top_text_y), line, font=top_font, fill=(255, 255, 255, int(255 * 0.8)))
+
+                # 첫 번째 줄에 윗줄 추가
+                if i == 0:
+                    line_start_x = top_text_x
+                    line_end_x = top_text_x + top_text_width
+                    draw.line(
+                        [(line_start_x, top_text_y - line_padding),
+                        (line_end_x, top_text_y - line_padding)],
+                        fill=(255, 255, 255, int(255 * 0.8)),
+                        width=2
+                    )
+
+                # 마지막 줄에 밑줄 추가
+                if i == len(lines_list) - 1:
+                    line_start_x = top_text_x
+                    line_end_x = top_text_x + top_text_width
+                    draw.line(
+                        [(line_start_x, top_text_y + top_text_height + line_padding),
+                        (line_end_x, top_text_y + top_text_height + line_padding)],
+                        fill=(255, 255, 255, int(255 * 0.8)),
+                        width=2
+                    )
+
                 # Y 좌표를 다음 줄로 이동
-                top_text_y += top_font.getbbox("A")[3] + 5
+                top_text_y += top_text_height + 2 * line_padding
+
+
 
     # 하단 텍스트 추가
     bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
