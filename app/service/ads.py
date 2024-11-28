@@ -9,6 +9,7 @@ from app.crud.ads import (
 from app.schemas.ads import(
     AdsInitInfoOutPut, AdsInitInfo, WeatherInfo
 )
+from instagrapi import Client
 from fastapi import HTTPException
 import logging
 import io
@@ -790,3 +791,11 @@ def update_ads(store_business_number: str, use_option: str, title: str, detail_t
 
     # 글 pk 로 이미지 저장
     crud_update_ads_image(ads_id, image_url, final_image_url)
+
+
+
+# ADS 인스타 업로드
+def upload_ads(content, file_path):
+    cl = Client()
+    cl.login("semim_1995", "angel213")
+    cl.photo_upload(file_path, content)

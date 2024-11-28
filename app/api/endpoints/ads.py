@@ -21,6 +21,7 @@ from app.service.ads import (
     combine_ads_ver2 as service_combine_ads_ver2,
     delete_status as service_delete_status,
     update_ads as service_update_ads,
+    upload_ads as service_upload_ads
 )
 from pathlib import Path
 from fastapi.responses import JSONResponse
@@ -329,5 +330,54 @@ def update_ads(
         "detail_title": detail_title,
         "content": content,
         "image_url": image_url,
+        "final_image_url": final_image_url
+    }
+
+
+# 인스타 업로드
+@router.post("/upload")
+def upload_ads(content: str = Form(...), upload_image: UploadFile = File(None) ):
+    """
+    광고 업로드 엔드포인트
+    """
+    # 파이널 이미지 파일 처리
+    final_image_url = None
+    if upload_image:
+        try:
+            # 고유 이미지 명 생성
+            filename, ext = os.path.splitext(upload_image.filename)
+            today = datetime.now().strftime("%Y%m%d")
+            unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
+
+            # 파일 저장 경로 지정
+            file_path = os.path.join(FULL_PATH, unique_filename)
+
+            # 파일 저장
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(upload_image.file, buffer)
+
+            # 파이널 이미지 URL 생성
+            final_image_url = f"/static/images/ads/{unique_filename}"
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error saving final_image file: {str(e)}"
+            )
+
+    # 데이터 저장 호출
+    try:
+        service_upload_ads(
+            content, 
+            file_path
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error inserting ad data: {str(e)}"
+        )
+
+    # 성공 응답 반환
+    return {
+        "content": content,
         "final_image_url": final_image_url
     }
