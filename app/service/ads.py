@@ -23,7 +23,13 @@ import os
 from typing import List
 import base64
 import re
-from datetime import datetime, timezone, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import os
+import smtplib
+
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -792,10 +798,68 @@ def update_ads(store_business_number: str, use_option: str, title: str, detail_t
     # 글 pk 로 이미지 저장
     crud_update_ads_image(ads_id, image_url, final_image_url)
 
+INSTA_NAME = os.getenv("INSTA_NAME")
+INSTA_PW = os.getenv("INSTA_PW")
+
+# ADS 인스타 스토리 업로드
+def upload_story_ads(content, file_path):
+    try:
+        cl = Client()
+        cl.login(INSTA_NAME, INSTA_PW)
+        cl.photo_upload_to_story(file_path, content)
+        print("스토리 업로드가 완료되었습니다.")
+    except Exception as e:
+        print(f"스토리 업로드 중 오류가 발생했습니다: {e}")
+
+# ADS 인스타 피드 업로드
+def upload_feed_ads(content, file_path):
+    try:
+        cl = Client()
+        cl.login(INSTA_NAME, INSTA_PW)
+        cl.photo_upload(file_path, content)
+        print("피드 업로드가 완료되었습니다.")
+    except Exception as e:
+        print(f"피드 업로드 중 오류가 발생했습니다: {e}")
 
 
-# ADS 인스타 업로드
-def upload_ads(content, file_path):
-    cl = Client()
-    cl.login("semim_1995", "angel213")
-    cl.photo_upload(file_path, content)
+# ADS 이메일 전송
+async def upload_mms_ads(content: str, file_path: str):
+    try:
+        # 환경 변수에서 이메일 정보 가져오기
+        mail_from = os.getenv("MAIL_FROM")
+        mail_to = os.getenv("MAIL_TO")
+        mail_pw = os.getenv("MAIL_PW")
+
+        # 이메일 설정
+        msg = MIMEMultipart()
+        msg['From'] = mail_from
+        msg['To'] = mail_to
+        msg['Subject'] = "광고 입니다."
+
+        # 이메일 본문 추가
+        msg.attach(MIMEText(content, 'plain'))
+
+        # 파일 첨부
+        if file_path and os.path.exists(file_path):
+            with open(file_path, "rb") as attachment:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(attachment.read())
+                encoders.encode_base64(part)
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename={os.path.basename(file_path)}'
+                )
+                msg.attach(part)
+        else:
+            print("첨부 파일 없이 이메일을 전송합니다.")
+
+        # SMTP 서버 설정
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()  # TLS 시작
+            server.login(mail_from, mail_pw)  # 로그인
+            server.sendmail(mail_from, mail_to, msg.as_string())  # 이메일 전송
+
+        print("이메일이 성공적으로 전송되었습니다.")
+
+    except Exception as e:
+        print(f"이메일 전송 중 오류 발생: {e}")

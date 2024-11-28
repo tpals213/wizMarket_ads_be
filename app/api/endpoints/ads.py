@@ -21,7 +21,9 @@ from app.service.ads import (
     combine_ads_ver2 as service_combine_ads_ver2,
     delete_status as service_delete_status,
     update_ads as service_update_ads,
-    upload_ads as service_upload_ads
+    upload_story_ads as service_upload_story_ads,
+    upload_feed_ads as service_upload_feed_ads,
+    upload_mms_ads as service_upload_mms_ads
 )
 from pathlib import Path
 from fastapi.responses import JSONResponse
@@ -335,21 +337,22 @@ def update_ads(
 
 
 # 인스타 업로드
+import traceback
+from fastapi.responses import JSONResponse
+
 @router.post("/upload")
-def upload_ads(content: str = Form(...), upload_image: UploadFile = File(None) ):
+async def upload_ads(use_option: str = Form(...), content: str = Form(...), upload_image: UploadFile = File(None)):
     """
     광고 업로드 엔드포인트
     """
-    # 파이널 이미지 파일 처리
     final_image_url = None
+
+    # 파이널 이미지 파일 처리
     if upload_image:
         try:
-            # 고유 이미지 명 생성
             filename, ext = os.path.splitext(upload_image.filename)
             today = datetime.now().strftime("%Y%m%d")
             unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
-
-            # 파일 저장 경로 지정
             file_path = os.path.join(FULL_PATH, unique_filename)
 
             # 파일 저장
@@ -359,21 +362,31 @@ def upload_ads(content: str = Form(...), upload_image: UploadFile = File(None) )
             # 파이널 이미지 URL 생성
             final_image_url = f"/static/images/ads/{unique_filename}"
         except Exception as e:
-            raise HTTPException(
+            error_trace = traceback.format_exc()
+            return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error saving final_image file: {str(e)}"
+                content={
+                    "detail": f"Error saving final_image file: {str(e)}",
+                    "traceback": error_trace
+                }
             )
 
     # 데이터 저장 호출
     try:
-        service_upload_ads(
-            content, 
-            file_path
-        )
+        if use_option == '인스타그램 스토리':
+            service_upload_story_ads(content, file_path)
+        elif use_option == '인스타그램 피드':
+            service_upload_feed_ads(content, file_path)
+        elif use_option == '문자메시지':
+            await service_upload_mms_ads(content, file_path)
     except Exception as e:
-        raise HTTPException(
+        error_trace = traceback.format_exc()
+        return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error inserting ad data: {str(e)}"
+            content={
+                "detail": f"Error inserting ad data: {str(e)}",
+                "traceback": error_trace
+            }
         )
 
     # 성공 응답 반환
