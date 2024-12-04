@@ -9,6 +9,11 @@ from app.crud.ads import (
 from app.schemas.ads import(
     AdsInitInfoOutPut, AdsInitInfo, WeatherInfo
 )
+
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google_auth_oauthlib.flow import InstalledAppFlow
+import cv2
 from instagrapi import Client
 from fastapi import HTTPException
 import logging
@@ -365,21 +370,22 @@ def generate_image(
         
     elif model_option == 'dalle':
         try:
-            if use_option == '문자메시지':
-                resize = (1024, 1792)
-            elif use_option == '유튜브 썸네일':
-                resize = (1792, 1024)
-            elif use_option == '인스타그램 스토리':
-                resize = (1024, 1792)
-            elif use_option == '인스타그램 피드':
-                resize = (1024, 1792)
-            elif use_option == '배너':
-                resize = (1024, 1024)
-            else :
-                resize= None
+            # Resize와 Final Size 매핑
+            resize_mapping = {
+                '문자메시지': ((1024, 1792), (333, 458)),
+                '유튜브 썸네일': ((1792, 1024), (1792, 1024)),
+                '인스타그램 스토리': ((1024, 1792), (412, 732)),
+                '인스타그램 피드': ((1024, 1792), (412, 514)),
+                '배너': ((1024, 1024), (377, 377))
+            }
+            resize, final_size = resize_mapping.get(use_option, (None, None))
+
+            if not resize or not final_size:
+                raise ValueError("Invalid `use_option` provided or no resize option available.")
+
             resize_str = f"{resize[0]}x{resize[1]}"
-            # prompt = ai_prompt 한글 주석
-            # print(prompt) 
+            
+            # Prompt 전달 및 이미지 생성
             response = client.images.generate(
                 model="dall-e-3",
                 prompt=prompt,
@@ -393,41 +399,22 @@ def generate_image(
             image_response = requests.get(image_url)
             image_response.raise_for_status()
 
-            # Pillow를 사용한 리사이즈
+            # 이미지 열기
             img = Image.open(io.BytesIO(image_response.content))
 
-            # 원하는 크기로 다시 리사이즈 (예: 800x800)
-            if use_option == '문자메시지':
-                final_size = (333, 458)
-            elif use_option == '유튜브 썸네일':
-                final_size = (412, 232)
-            elif use_option == '인스타그램 스토리':
-                final_size = (412, 732)
-            elif use_option == '인스타그램 피드':
-                final_size = (412, 514)
-            elif use_option == '배너':
-                final_size = (377, 377)
-            else :
-                final_size= None
-            # 이미지 리사이즈
-            if final_size:
-                target_width = final_size[0]  # 원하는 가로 크기
-                original_width, original_height = img.size
-                aspect_ratio = original_height / original_width  # 세로/가로 비율 계산
-
-                # 새로운 세로 크기 계산
-                target_height = int(target_width * aspect_ratio)
-
-                # 리사이즈 수행
-                resized_img = img.resize((target_width, target_height), Image.LANCZOS)
+            # Pillow로 리사이즈
+            resized_img = img.resize(final_size, Image.LANCZOS)
 
             # Base64 인코딩
             buffer = io.BytesIO()
             resized_img.save(buffer, format="PNG")
             img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
             return {"image": f"data:image/png;base64,{img_str}"}
+
         except Exception as e:
             return {"error": f"이미지 생성 중 오류 발생: {e}"}
+
 
 
 
@@ -807,7 +794,10 @@ def upload_story_ads(content, file_path):
         cl = Client()
         cl.login(INSTA_NAME, INSTA_PW)
         cl.photo_upload_to_story(file_path, content)
-        print("스토리 업로드가 완료되었습니다.")
+        # 업로드 성공 후 파일 삭제
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"파일 삭제 완료: {file_path}")
     except Exception as e:
         print(f"스토리 업로드 중 오류가 발생했습니다: {e}")
 
@@ -817,7 +807,10 @@ def upload_feed_ads(content, file_path):
         cl = Client()
         cl.login(INSTA_NAME, INSTA_PW)
         cl.photo_upload(file_path, content)
-        print("피드 업로드가 완료되었습니다.")
+        # 업로드 성공 후 파일 삭제
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"파일 삭제 완료: {file_path}")
     except Exception as e:
         print(f"피드 업로드 중 오류가 발생했습니다: {e}")
 
@@ -859,7 +852,105 @@ async def upload_mms_ads(content: str, file_path: str):
             server.login(mail_from, mail_pw)  # 로그인
             server.sendmail(mail_from, mail_to, msg.as_string())  # 이메일 전송
 
-        print("이메일이 성공적으로 전송되었습니다.")
-
     except Exception as e:
         print(f"이메일 전송 중 오류 발생: {e}")
+
+
+ROOT_PATH = os.getenv("ROOT_PATH")
+AUTH_PATH = os.getenv("AUTH_PATH")
+
+# ADS 유튜브 업로드
+# 인증
+def get_authenticated_service():
+    # InstalledAppFlow를 사용하여 OAuth 인증 수행
+    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth.json")
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    flow = InstalledAppFlow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE, SCOPES
+    )
+    # 로컬 서버를 실행하여 인증을 수행
+    credentials = flow.run_local_server(port=8080, prompt="consent", authorization_prompt_message="")
+    return build("youtube", "v3", credentials=credentials)
+
+# 업로드
+def upload_video(youtube, file, title, description, tags, category_id):
+    request_body = {
+        "snippet": {
+            "title": title,
+            "description": description,
+            "tags": tags,
+            "categoryId": category_id
+        },
+        "status": {
+            "privacyStatus": "public"  # 공개 여부: "private", "unlisted", "public"
+        }
+    }
+
+    media_file = MediaFileUpload(file, chunksize=-1, resumable=True)
+    response = youtube.videos().insert(
+        part="snippet,status",
+        body=request_body,
+        media_body=media_file
+    ).execute()
+
+
+# 사진 영상 변환
+def upload_youtube_ads(content, store_name, tag, file_path):
+    # 이미지 파일 경로
+    img_file = file_path
+
+    # 이미지 불러오기
+    img = cv2.imread(img_file)
+    if img is None:
+        print(f"이미지를 불러올 수 없습니다: {img_file}")
+        return
+    
+    # 이미지의 크기 가져오기 (가로, 세로)
+    height, width, _ = img.shape
+    frame_size = (width, height)  # 이미지 크기를 그대로 사용
+
+
+    fps = 24  # 초당 프레임
+    duration = 5  # 동영상 길이 (초)
+
+    # 생성될 동영상 경로
+    video_file_path = "output.mp4"
+
+    # 비디오 코덱 설정 및 VideoWriter 초기화
+    out = cv2.VideoWriter(video_file_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, frame_size)
+
+    # 동영상 길이와 FPS에 따라 총 프레임 수 계산
+    total_frames = fps * duration
+
+    # 동일한 이미지를 여러 프레임으로 작성
+    for _ in range(total_frames):
+        out.write(img)
+
+    out.release()
+
+
+    try:
+        # YouTube 업로드
+        youtube_service = get_authenticated_service()
+        upload_video(
+            youtube=youtube_service,
+            file=video_file_path,  # 업로드할 동영상 경로
+            title=store_name,  # 동영상 제목
+            description=content,  # 동영상 설명
+            tags=[tag],  # 태그
+            category_id="22"  # 카테고리 ID (22: People & Blogs)
+        )
+
+
+        # 업로드 성공 시 파일 삭제
+        if os.path.exists(video_file_path):
+            os.remove(file_path)
+            os.remove(video_file_path)
+            print(f"동영상 파일 삭제 완료: {video_file_path}")
+
+    except Exception as e:
+        print(f"업로드 중 오류 발생: {e}")
+        if os.path.exists(video_file_path):
+            print(f"동영상 파일을 삭제하지 않았습니다: {video_file_path}")
+
+

@@ -23,8 +23,11 @@ from app.service.ads import (
     update_ads as service_update_ads,
     upload_story_ads as service_upload_story_ads,
     upload_feed_ads as service_upload_feed_ads,
-    upload_mms_ads as service_upload_mms_ads
+    upload_mms_ads as service_upload_mms_ads,
+    upload_youtube_ads as service_upload_youtube_ads
 )
+import traceback
+from fastapi.responses import JSONResponse
 from pathlib import Path
 from fastapi.responses import JSONResponse
 import shutil
@@ -336,12 +339,9 @@ def update_ads(
     }
 
 
-# 인스타 업로드
-import traceback
-from fastapi.responses import JSONResponse
-
+# 업로드
 @router.post("/upload")
-async def upload_ads(use_option: str = Form(...), content: str = Form(...), upload_image: UploadFile = File(None)):
+async def upload_ads(use_option: str = Form(...), content: str = Form(...), store_name: str = Form(...), tag: str = Form(...), upload_image: UploadFile = File(None)):
     """
     광고 업로드 엔드포인트
     """
@@ -379,6 +379,8 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), uplo
             service_upload_feed_ads(content, file_path)
         elif use_option == '문자메시지':
             await service_upload_mms_ads(content, file_path)
+        elif use_option == '유튜브 썸네일':
+            service_upload_youtube_ads(content, store_name, tag, file_path)
     except Exception as e:
         error_trace = traceback.format_exc()
         return JSONResponse(
@@ -394,3 +396,4 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), uplo
         "content": content,
         "final_image_url": final_image_url
     }
+
