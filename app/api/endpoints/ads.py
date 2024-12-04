@@ -13,18 +13,23 @@ import logging
 from typing import List
 from app.service.ads import (
     select_ads_init_info as service_select_ads_init_info,
+    insert_ads as service_insert_ads,
+    delete_status as service_delete_status,
+    update_ads as service_update_ads,
+)
+from app.service.ads_generate import (
     combine_ads as service_combine_ads,
     generate_content as service_generate_content,
     generate_image as service_generate_image,
-    insert_ads as service_insert_ads,
     combine_ads_ver1 as service_combine_ads_ver1,
     combine_ads_ver2 as service_combine_ads_ver2,
-    delete_status as service_delete_status,
-    update_ads as service_update_ads,
+)
+from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
     upload_feed_ads as service_upload_feed_ads,
     upload_mms_ads as service_upload_mms_ads,
-    upload_youtube_ads as service_upload_youtube_ads
+    upload_youtube_ads as service_upload_youtube_ads,
+    upload_naver_ads as service_upload_naver_ads
 )
 import traceback
 from fastapi.responses import JSONResponse
@@ -381,6 +386,8 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
             await service_upload_mms_ads(content, file_path)
         elif use_option == '유튜브 썸네일':
             service_upload_youtube_ads(content, store_name, tag, file_path)
+        elif use_option == '네이버 블로그':
+            service_upload_naver_ads(content, store_name, tag, file_path)
     except Exception as e:
         error_trace = traceback.format_exc()
         return JSONResponse(
