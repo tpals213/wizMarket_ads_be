@@ -40,3 +40,6 @@ __pycache__/
 
 # Docker 파일
 docker-compose.override.yml
+
+#JSON 파일
+app/static/auth/google_auth.json
