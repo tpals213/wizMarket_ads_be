@@ -121,7 +121,8 @@ AUTH_PATH = os.getenv("AUTH_PATH")
 # 인증
 def get_authenticated_service():
     # InstalledAppFlow를 사용하여 OAuth 인증 수행
-    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth.json")
+    # CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth.json")
+    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
     flow = InstalledAppFlow.from_client_secrets_file(
         CLIENT_SECRETS_FILE, SCOPES
