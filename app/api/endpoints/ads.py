@@ -16,6 +16,7 @@ from app.service.ads import (
     insert_ads as service_insert_ads,
     delete_status as service_delete_status,
     update_ads as service_update_ads,
+    select_ads_specific_info as service_select_ads_specific_info
 )
 from app.service.ads_generate import (
     combine_ads as service_combine_ads,
@@ -212,7 +213,7 @@ def insert_ads(
 
     # 데이터 저장 호출
     try:
-        service_insert_ads(
+        ads_pk = service_insert_ads(
             store_business_number, 
             use_option, 
             title, 
@@ -228,15 +229,7 @@ def insert_ads(
         )
 
     # 성공 응답 반환
-    return {
-        "store_business_number": store_business_number,
-        "use_option": use_option,
-        "title": title,
-        "detail_title": detail_title,
-        "content": content,
-        "image_url": image_url,
-        "final_image_url": final_image_url
-    }
+    return ads_pk
 
 # ADS 삭제처리
 @router.post("/delete/status")
@@ -404,3 +397,22 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
         "final_image_url": final_image_url
     }
 
+
+
+# Ads 카톡 홍보용 url 만들기
+@router.post("/promote/detail")
+def select_ads_specific_info(ads_id: int):
+    try:
+        # 요청 정보 출력
+        # logger.info(f"Request received from {request.client.host}:{request.client.port}")
+        # logger.info(f"Request headers: {request.headers}")
+        # logger.info(f"Request path: {request.url.path}")
+        data = service_select_ads_specific_info(ads_id)
+        return data
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)

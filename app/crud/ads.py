@@ -6,7 +6,7 @@ import pymysql
 import os
 from fastapi import HTTPException
 import logging
-from app.schemas.ads import AdsList, AdsInitInfo
+from app.schemas.ads import AdsList, AdsInitInfo, AdsSpecificInitInfo, AdsSpecificInitImage, AdsSpecificInitStoreName
 from typing import Optional, List
 from pydantic import BaseModel, Field, ValidationError
 
@@ -281,3 +281,141 @@ def update_ads_image(ads_id: int, image_url: str, final_image_url: str):
         if cursor:
             close_cursor(cursor)
         close_connection(connection)
+
+
+
+def select_ads_specific_info(ads_id : id):
+    connection = get_re_db_connection()
+    cursor = connection.cursor(pymysql.cursors.DictCursor)
+    logger = logging.getLogger(__name__)
+
+    try:
+        if connection.open:
+            select_query = """
+                SELECT 
+                    USE_OPTION,
+                    TITLE,
+                    CONTENT,
+                    STORE_BUSINESS_NUMBER
+                FROM
+                    ADS
+                WHERE
+                    ADS_ID = %s
+                ;
+            """
+            cursor.execute(select_query, (ads_id,))
+            row = cursor.fetchone()  # 한 행만 가져옴
+
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"AdsSpecificInitInfo {ads_id}에 해당하는 데이터를 찾을 수 없습니다.",
+                )
+
+            # Pydantic 모델로 매핑
+            ads_specific_info = AdsSpecificInitInfo(
+                use_option=row.get("USE_OPTION"),
+                title=row.get("TITLE"),
+                content=row.get("CONTENT"),
+                store_business_number=row.get("STORE_BUSINESS_NUMBER")
+            )
+            return ads_specific_info
+    except pymysql.MySQLError as e:
+        logger.error(f"MySQL Error: {e}")
+        raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다.")
+    except Exception as e:
+        logger.error(f"Unexpected Error in select_ads_init_info: {e}")
+        raise HTTPException(status_code=500, detail="알 수 없는 오류가 발생했습니다.")
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+
+def select_ads_specific_image(ads_id : id):
+    connection = get_re_db_connection()
+    cursor = connection.cursor(pymysql.cursors.DictCursor)
+    logger = logging.getLogger(__name__)
+
+    try:
+        if connection.open:
+            select_query = """
+                SELECT 
+                    ADS_FINAL_IMAGE_URL
+                FROM
+                    ADS_IMAGE
+                WHERE
+                    ADS_ID = %s
+                ;
+            """
+            cursor.execute(select_query, (ads_id,))
+            row = cursor.fetchone()  # 한 행만 가져옴
+
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"AdsSpecificInitImage {ads_id}에 해당하는 데이터를 찾을 수 없습니다.",
+                )
+
+            # Pydantic 모델로 매핑
+            ads_specific_image = AdsSpecificInitImage(
+                ads_final_image_url=row.get("ADS_FINAL_IMAGE_URL"),
+            )
+            return ads_specific_image
+    except pymysql.MySQLError as e:
+        logger.error(f"MySQL Error: {e}")
+        raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다.")
+    except Exception as e:
+        logger.error(f"Unexpected Error in select_ads_init_info: {e}")
+        raise HTTPException(status_code=500, detail="알 수 없는 오류가 발생했습니다.")
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+
+def select_ads_specific_store_name(store_business_number : str):
+    connection = get_re_db_connection()
+    cursor = connection.cursor(pymysql.cursors.DictCursor)
+    logger = logging.getLogger(__name__)
+
+    try:
+        if connection.open:
+            select_query = """
+                SELECT 
+                    STORE_NAME
+                FROM
+                    REPORT
+                WHERE
+                    STORE_BUSINESS_NUMBER = %s
+                ;
+            """
+            cursor.execute(select_query, (store_business_number,))
+            row = cursor.fetchone()  # 한 행만 가져옴
+
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"AdsSpecificInitStoreName {store_business_number}에 해당하는 데이터를 찾을 수 없습니다.",
+                )
+
+            # Pydantic 모델로 매핑
+            ads_specific_store_name = AdsSpecificInitStoreName(
+                store_name=row.get("STORE_NAME"),
+            )
+            return ads_specific_store_name
+    except pymysql.MySQLError as e:
+        logger.error(f"MySQL Error: {e}")
+        raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다.")
+    except Exception as e:
+        logger.error(f"Unexpected Error in select_ads_init_info: {e}")
+        raise HTTPException(status_code=500, detail="알 수 없는 오류가 발생했습니다.")
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()

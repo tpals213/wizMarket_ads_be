@@ -125,3 +125,26 @@ class AdsGenerateImageOutPut(BaseModel):
 # ADS 삭제
 class AdsDeleteRequest(BaseModel):
     ads_id : int
+
+
+
+class AdsSpecificInitInfo(BaseModel):
+    use_option: str
+    title: str
+    content: str
+    store_business_number:str
+
+    class Config:
+        from_attributes = True
+
+class AdsSpecificInitImage(BaseModel):
+    ads_final_image_url: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+class AdsSpecificInitStoreName(BaseModel):
+    store_name: Optional[str]
+
+    class Config:
+        from_attributes = True
