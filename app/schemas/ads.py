@@ -106,6 +106,11 @@ class AdsContentRequest(BaseModel):
     detail_content: str
 
 
+# 테스트 문구 생성
+class AdsContentNewRequest(BaseModel):
+    prompt : str
+
+
 class AdsGenerateContentOutPut(BaseModel):
     content: str
 

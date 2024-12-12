@@ -244,5 +244,3 @@ def upload_naver_ads():
         driver.quit()
 
 
-if __name__ == "__main__":
-    upload_naver_ads()

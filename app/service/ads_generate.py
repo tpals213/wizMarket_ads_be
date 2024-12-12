@@ -6,10 +6,11 @@ import requests
 from openai import OpenAI
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from io import BytesIO
-import os
 import base64
 import re
-import os
+import time
+from runwayml import RunwayML
+
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,40 @@ def generate_content(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": gpt_content},
+            {"role": "user", "content": content},
+        ],
+    )
+    report = completion.choices[0].message.content
+    return report
+
+# 신 문구 생성
+def generate_new_content(
+    prompt
+):
+    # gpt 영역
+    content = prompt
+    client = OpenAI(api_key=os.getenv("GPT_KEY"))
+    completion = client.chat.completions.create(
+        model="o1-preview",
+        messages=[
+            {"role": "user", "content": content}
+        ],
+    )
+    report = completion.choices[0].message.content
+    # print(report)
+    return report
+
+
+# 구 문구 생성
+def generate_old_content(
+    prompt
+):
+    # gpt 영역
+    content = prompt
+    client = OpenAI(api_key=os.getenv("GPT_KEY"))
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
             {"role": "user", "content": content},
         ],
     )
@@ -196,7 +231,8 @@ def generate_image(
                 '유튜브 썸네일': ((1792, 1024), (1792, 1024)),
                 '인스타그램 스토리': ((1024, 1792), (412, 732)),
                 '인스타그램 피드': ((1024, 1792), (412, 514)),
-                '배너': ((1024, 1024), (377, 377))
+                '배너': ((1024, 1024), (377, 377)),
+                '네이버 블로그' : ((1024, 1792), (1024, 1792))
             }
             resize, final_size = resize_mapping.get(use_option, (None, None))
 
@@ -554,3 +590,51 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return f"data:image/png;base64,{base64_image}"
+
+
+
+
+# 영상 생성
+def generate_video(file_path):
+    api_key = os.getenv("RUNWAYML_API_SECRET")
+
+    if not api_key:
+        raise ValueError("API key not found. Please check your .env file.")
+
+    # Initialize the RunwayML client with the API key
+    client = RunwayML(api_key=api_key)
+
+    image_path = file_path
+
+    # Encode image to base64
+    with open(image_path, "rb") as f:
+        base64_image = base64.b64encode(f.read()).decode("utf-8")
+
+    # Create a new image-to-video task
+    task = client.image_to_video.create(
+        model='gen3a_turbo',
+        prompt_image=f"data:image/png;base64,{base64_image}",
+        prompt_text='Make the subject of the image move vividly.',
+    )
+    task_id = task.id
+
+    # Poll the task until it's complete
+    print("Task created. Polling for status...")
+    while True:
+        task = client.tasks.retrieve(task_id)
+        if task.status in ['SUCCEEDED', 'FAILED']:
+            break
+        print(f"Task status: {task.status}. Retrying in 10 seconds...")
+        time.sleep(10)
+
+    # Check final status
+    if task.status == 'SUCCEEDED':
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        result_url = task.output[0]  # output is a list, so take the first element
+        return {"result_url": result_url}
+    else:
+        print("Task failed.")
+        # Log failure details
+        print(f"Failure Reason: {task.failure}")
+        print(f"Failure Code: {task.failure_code}")

@@ -5,7 +5,7 @@ from app.schemas.ads import (
     AdsList, AdsInitInfoOutPut,
     AdsGenerateContentOutPut, AdsContentRequest,
     AdsGenerateImageOutPut, AdsImageRequest,
-    AdsDeleteRequest
+    AdsDeleteRequest, AdsContentNewRequest
 )
 from fastapi import Request
 from PIL import Image
@@ -22,16 +22,19 @@ from app.service.ads_generate import (
     combine_ads as service_combine_ads,
     generate_content as service_generate_content,
     generate_image as service_generate_image,
+    generate_video as service_generate_video,
     combine_ads_ver1 as service_combine_ads_ver1,
     combine_ads_ver2 as service_combine_ads_ver2,
+    generate_new_content as service_generate_new_content,
+    generate_old_content as service_generate_old_content
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
     upload_feed_ads as service_upload_feed_ads,
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
-    upload_naver_ads as service_upload_naver_ads
 )
+from app.service.ads_upload_naver import upload_naver_ads as service_upload_naver_ads
 import traceback
 from fastapi.responses import JSONResponse
 from pathlib import Path
@@ -409,6 +412,81 @@ def select_ads_specific_info(ads_id: int):
         # logger.info(f"Request path: {request.url.path}")
         data = service_select_ads_specific_info(ads_id)
         return data
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+# Ads 영상 만들기
+@router.post("/generate/video")
+def generate_video(
+    title: str = Form(...),
+    final_image: UploadFile = File(None)  # 단일 이미지 파일
+):
+    
+    # 파이널 이미지 파일 처리
+    if final_image:
+        try:
+            # 고유 이미지 명 생성
+            filename, ext = os.path.splitext(final_image.filename)
+            today = datetime.now().strftime("%Y%m%d")
+            unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
+            file_path = os.path.join(FULL_PATH, unique_filename)
+            # print(file_path)
+            # 파일 저장
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(final_image.file, buffer)
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error saving final_image file: {str(e)}"
+            )
+    
+    # 데이터 저장 호출
+    try:
+        result_url= service_generate_video(file_path)
+        return {"result_url" : result_url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error inserting ad data: {str(e)}"
+        )
+
+
+# 새 모델 테스트
+@router.post("/generate/test/new/content", response_model=AdsGenerateContentOutPut)
+def generate_new_content(request: AdsContentNewRequest):
+    try:
+        # print(request.prompt)
+        # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
+        content = service_generate_new_content(
+            request.prompt
+        )
+        return {'content': content}
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+# 구 모델 테스트
+@router.post("/generate/test/old/content", response_model=AdsGenerateContentOutPut)
+def generate_old_content(request: AdsContentNewRequest):
+    try:
+        # print(request.prompt)
+        # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
+        content = service_generate_old_content(
+            request.prompt
+        )
+        return {'content': content}
     except HTTPException as http_ex:
         logger.error(f"HTTP error occurred: {http_ex.detail}")
         raise http_ex

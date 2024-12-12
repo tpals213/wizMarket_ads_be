@@ -25,3 +25,6 @@ google-auth==2.36.0
 google-auth-oauthlib==1.2.1
 google-auth-httplib2==0.2.0
 opencv-python==4.10.0.84
+runwayml==2.1.4
+pyperclip==1.9.0
+pyautogui==0.9.54
