@@ -26,7 +26,8 @@ from app.service.ads_generate import (
     combine_ads_ver1 as service_combine_ads_ver1,
     combine_ads_ver2 as service_combine_ads_ver2,
     generate_new_content as service_generate_new_content,
-    generate_old_content as service_generate_old_content
+    generate_old_content as service_generate_old_content,
+    generate_claude_content as service_generate_claude_content
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
@@ -484,6 +485,25 @@ def generate_old_content(request: AdsContentNewRequest):
         # print(request.prompt)
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         content = service_generate_old_content(
+            request.prompt
+        )
+        return {'content': content}
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+# 클로드 모델 테스트
+@router.post("/generate/test/claude/content", response_model=AdsGenerateContentOutPut)
+def generate_claude_content(request: AdsContentNewRequest):
+    try:
+        # print(request.prompt)
+        # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
+        content = service_generate_claude_content(
             request.prompt
         )
         return {'content': content}

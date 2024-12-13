@@ -10,7 +10,7 @@ import base64
 import re
 import time
 from runwayml import RunwayML
-
+import anthropic
 
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,31 @@ def generate_old_content(
     )
     report = completion.choices[0].message.content
     return report
+
+# 클로드 문구 생성
+def generate_claude_content(
+    prompt
+):
+    api_key = os.getenv("CLAUDE_KEY")
+    client = anthropic.Anthropic(api_key=api_key)
+
+    result_text = ""
+    response = client.messages.create(
+        model="claude-3-opus-20240229",
+        max_tokens=1000,
+        temperature=0.0,
+        system="Respond only in Korean.",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    if not response.content or not isinstance(response.content, list):
+        result_text = "No response or unexpected response format."
+    else:
+        response_texts = [block.text for block in response.content if hasattr(block, 'text')]
+        result_text = " ".join(response_texts)
+ 
+    return result_text
+
 
 
 # OpenAI API 키 설정
