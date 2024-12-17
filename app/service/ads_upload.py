@@ -32,7 +32,7 @@ import os, time
 import base64
 from concurrent.futures import ThreadPoolExecutor
 import pymysql
-
+from moviepy import *
 
 
 logger = logging.getLogger(__name__)
@@ -116,6 +116,9 @@ async def upload_mms_ads(content: str, file_path: str):
 
 ROOT_PATH = os.getenv("ROOT_PATH")
 AUTH_PATH = os.getenv("AUTH_PATH")
+AUDIO_PATH = os.getenv("AUDIO_PATH")
+full_audio_path = os.path.join(ROOT_PATH, AUDIO_PATH.strip("/"), "audio.mp3")
+
 
 # ADS 유튜브 업로드
 # 인증
@@ -187,13 +190,19 @@ def upload_youtube_ads(content, store_name, tag, file_path):
 
     out.release()
 
+    audio_path = full_audio_path
+    output_path = "video_with_audio.mp4"
+    video = VideoFileClip(video_file_path)
+    audio = AudioFileClip(audio_path).subclipped(0, video.duration)
+    video_with_audio = video.with_audio(audio)
+    video_with_audio.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
     try:
         # YouTube 업로드
         youtube_service = get_authenticated_service()
         upload_video(
             youtube=youtube_service,
-            file=video_file_path,  # 업로드할 동영상 경로
+            file=output_path,  # 업로드할 동영상 경로
             title=store_name,  # 동영상 제목
             description=content,  # 동영상 설명
             tags=[tag],  # 태그
@@ -205,6 +214,7 @@ def upload_youtube_ads(content, store_name, tag, file_path):
         if os.path.exists(video_file_path):
             os.remove(file_path)
             os.remove(video_file_path)
+            os.remove(output_path)
             print(f"동영상 파일 삭제 완료: {video_file_path}")
 
     except Exception as e:
