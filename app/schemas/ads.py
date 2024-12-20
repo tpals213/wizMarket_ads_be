@@ -120,10 +120,11 @@ class AdsImageRequest(BaseModel):
     use_option: str
     ai_model_option: str
     ai_prompt: str
+    ai_mid_prompt: str
     
 
 class AdsGenerateImageOutPut(BaseModel):
-    image: Optional[str] = None
+    image: Optional[list] = None
 
 
 

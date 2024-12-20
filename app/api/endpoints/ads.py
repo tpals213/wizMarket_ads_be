@@ -27,7 +27,8 @@ from app.service.ads_generate import (
     combine_ads_ver2 as service_combine_ads_ver2,
     generate_new_content as service_generate_new_content,
     generate_old_content as service_generate_old_content,
-    generate_claude_content as service_generate_claude_content
+    generate_claude_content as service_generate_claude_content,
+    generate_image_mid as service_generate_image_mid
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
@@ -99,13 +100,21 @@ def generate_content(request: AdsContentRequest):
 @router.post("/generate/image", response_model=AdsGenerateImageOutPut)
 def generate_image(request: AdsImageRequest):
     try:
-        # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
-        data = service_generate_image(
-            request.use_option,
-            request.ai_model_option,
-            request.ai_prompt,
-        )
-        return data
+        # print(request.ai_model_option)
+        if request.ai_model_option == 'midJouney':
+            data = service_generate_image_mid(
+                request.use_option,
+                request.ai_mid_prompt,
+            )
+            return data
+        else:
+            # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
+            data = service_generate_image(
+                request.use_option,
+                request.ai_model_option,
+                request.ai_prompt,
+            )
+            return data
     except HTTPException as http_ex:
         logger.error(f"HTTP error occurred: {http_ex.detail}")
         print(f"HTTPException 발생: {http_ex.detail}")  # 추가 디버깅 출력
@@ -437,7 +446,6 @@ def generate_video(
             today = datetime.now().strftime("%Y%m%d")
             unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
             file_path = os.path.join(FULL_PATH, unique_filename)
-            # print(file_path)
             # 파일 저장
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(final_image.file, buffer)

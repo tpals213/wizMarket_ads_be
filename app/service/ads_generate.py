@@ -11,7 +11,8 @@ import re
 import time
 from runwayml import RunwayML
 import anthropic
-
+from moviepy import *
+import uuid
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -103,6 +104,133 @@ def generate_claude_content(
 api_key = os.getenv("GPT_KEY")
 client = OpenAI(api_key=api_key)
 
+# 미드저니 이미지 생성
+def generate_image_mid(
+    use_option, ai_prompt
+):
+    use_option_propt_map = {
+        '문자메시지': (9, 16),
+        '유튜브 썸네일': (16, 9),
+        '인스타그램 스토리': (9, 16),
+        '인스타그램 피드': (1, 1),
+        '배너': (16, 9),
+        '네이버 블로그': (9, 16)
+    }
+    # gpt 영역
+    gpt_content = """
+        You are now a Midjourney prompt engineer.
+        Midjourney AI creates images based on given prompts.
+        Please refer to the link below for Midjourney.
+        https://en.wikipedia.org/wiki/Midjourney
+        All you have to do is configure the prompt so Midjourney can generate the best image for what you're requesting.
+    """
+    content = ai_prompt
+    client = OpenAI(api_key=os.getenv("GPT_KEY"))
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        temperature=0.7,
+        messages=[
+            {"role": "system", "content": gpt_content},
+            {"role": "user", "content": f"Translate the following into English and create a MidJourney prompt: {content}"},
+        ],
+    )
+    prompt_re = completion.choices[0].message.content 
+
+    # Get aspect ratio from use_option
+    aspect_ratio = use_option_propt_map.get(use_option)
+    if not aspect_ratio:
+        raise ValueError("Invalid `use_option` provided.")
+
+    # Format --ar string dynamically
+    ar_str = f"--ar {aspect_ratio[0]}:{aspect_ratio[1]}"
+    # style_str = f"artgerm"
+    # without_text = f"without text"
+
+    # Combine prompt with aspect ratio
+    # prompt = f"{prompt_re} {without_text} {style_str} {ar_str}"
+    prompt = f"{prompt_re} {ar_str}"
+
+    USE_API_TOKEN = os.getenv("USE_API_TOKEN")
+    DIS_USE_TOKEN = os.getenv("DIS_USE_TOKEN")
+    DIS_SER_ID = os.getenv("DIS_SER_ID")
+    DIS_CHA_ID = os.getenv("DIS_CHA_ID")
+
+    apiUrl = "https://api.useapi.net/v2/jobs/imagine"
+    token = USE_API_TOKEN
+    discord = DIS_USE_TOKEN
+    server = DIS_SER_ID
+    channel = DIS_CHA_ID
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+    body = {
+        "prompt": f"{prompt}",
+        "discord": f"{discord}",
+        "server": f"{server}",
+        "channel": f"{channel}"
+    }
+    response = requests.post(apiUrl, headers=headers, json=body)
+    if response.status_code != 200:
+        return {"error": f"Job creation failed with status {response.status_code}"}
+
+    job_id = response.json().get("jobid")
+    if not job_id:
+        return {"error": "No job ID returned from API"}
+    print(job_id)
+    # Step 2: Polling to check job status
+    apiUrl = f"https://api.useapi.net/v2/jobs/?jobid={job_id}"
+    while True:
+        response = requests.get(apiUrl, headers=headers)
+        if response.status_code != 200:
+            return {"error": f"Job status check failed with status {response.status_code}"}
+        
+        data = response.json()
+        status = data.get("status")
+        if status == "completed":
+            break  # 작업 완료
+        elif status in ["failed", "canceled"]:
+            return {"error": f"Job failed or canceled with status: {status}"}
+        
+        # 작업이 완료되지 않은 경우 대기 후 재요청
+        print("Job not ready yet, retrying in 5 seconds...")
+        time.sleep(5)  # 5초 대기
+
+    link = data.get("attachments")
+
+    if link and len(link) > 0:
+        url = link[0]['proxy_url']  # 이미지 URL 가져오기
+
+        # 이미지 저장 및 Base64 인코딩
+        image_response = requests.get(url)
+        if image_response.status_code == 200:
+            image = Image.open(BytesIO(image_response.content))
+            width, height = image.size
+
+            coordinates = [
+                (0, 0, width // 2, height // 2),       # 왼쪽 상단
+                (width // 2, 0, width, height // 2),   # 오른쪽 상단
+                (0, height // 2, width // 2, height),  # 왼쪽 하단
+                (width // 2, height // 2, width, height)  # 오른쪽 하단
+            ]
+
+            img_parts_base64 = []
+            for coord in coordinates:
+                cropped_image = image.crop(coord)
+                buffered = BytesIO()
+                cropped_image.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                img_parts_base64.append(f"data:image/png;base64,{img_str}")
+
+            # 결과 반환
+            return {"image": img_parts_base64}
+        else:
+            return {"error": "Failed to download image from proxy URL"}
+    else:
+        return {"error": "No attachments found in job response"}
+
+
+
 # 이미지 생성
 def generate_image(
     use_option, model_option, ai_prompt
@@ -134,7 +262,7 @@ def generate_image(
         ],
     )
     prompt = completion.choices[0].message.content
-
+    image_list = []
     token = os.getenv("FACE_KEY")
     if model_option == 'basic':
         # print(prompt)
@@ -165,9 +293,9 @@ def generate_image(
             buffered = BytesIO()
             image.save(buffered, format="PNG")  # PNG 형식으로 저장
             img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
+            image_list.append(f"data:image/png;base64,{img_str}")
             # JSON 형식으로 Base64 이미지 반환
-            return {"image": f"data:image/png;base64,{img_str}"}
+            return {"image": image_list}
 
         except requests.exceptions.RequestException as e:
             print(f"Failed to generate image: {e}")
@@ -252,16 +380,16 @@ def generate_image(
         try:
             # Resize와 Final Size 매핑
             resize_mapping = {
-                '문자메시지': ((1024, 1792), (333, 458)),
-                '유튜브 썸네일': ((1792, 1024), (1792, 1024)),
-                '인스타그램 스토리': ((1024, 1792), (412, 732)),
-                '인스타그램 피드': ((1024, 1792), (412, 514)),
-                '배너': ((1024, 1024), (768, 768)),
-                '네이버 블로그' : ((1024, 1792), (1024, 1792))
+                '문자메시지': (1024, 1792),
+                '유튜브 썸네일': (1792, 1024),
+                '인스타그램 스토리': (1024, 1792),
+                '인스타그램 피드': (1024, 1024),
+                '배너': (1792, 1024),
+                '네이버 블로그': (1792, 1024)
             }
-            resize, final_size = resize_mapping.get(use_option, (None, None))
+            resize = resize_mapping.get(use_option, None)
 
-            if not resize or not final_size:
+            if not resize:
                 raise ValueError("Invalid `use_option` provided or no resize option available.")
 
             resize_str = f"{resize[0]}x{resize[1]}"
@@ -283,16 +411,15 @@ def generate_image(
             # 이미지 열기
             img = Image.open(io.BytesIO(image_response.content))
 
-            # Pillow로 리사이즈
-            resized_img = img.resize(final_size, Image.LANCZOS)
-
-            # Base64 인코딩
+             # Base64 인코딩
             buffer = io.BytesIO()
-            resized_img.save(buffer, format="PNG")
+            img = Image.open(io.BytesIO(image_response.content))
+            img.save(buffer, format="PNG")
             img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            image_list.append(f"data:image/png;base64,{img_str}")
 
-            return {"image": f"data:image/png;base64,{img_str}"}
-
+            return {"image": image_list}
+        
         except Exception as e:
             return {"error": f"이미지 생성 중 오류 발생: {e}"}
 
@@ -621,6 +748,11 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
 
 # 영상 생성
 def generate_video(file_path):
+
+    ROOT_PATH = os.getenv("ROOT_PATH")
+    AUDIO_PATH = os.getenv("AUDIO_PATH")
+    full_audio_path = os.path.join(ROOT_PATH, AUDIO_PATH.strip("/"), "audio.mp3")
+
     api_key = os.getenv("RUNWAYML_API_SECRET")
 
     if not api_key:
@@ -635,13 +767,16 @@ def generate_video(file_path):
     with open(image_path, "rb") as f:
         base64_image = base64.b64encode(f.read()).decode("utf-8")
 
-    # Create a new image-to-video task
-    task = client.image_to_video.create(
-        model='gen3a_turbo',
-        prompt_image=f"data:image/png;base64,{base64_image}",
-        prompt_text='Make the subject of the image move vividly.',
-    )
-    task_id = task.id
+    try : 
+        # Create a new image-to-video task
+        task = client.image_to_video.create(
+            model='gen3a_turbo',
+            prompt_image=f"data:image/png;base64,{base64_image}",
+            prompt_text='Make the subject of the image move vividly.',
+        )
+        task_id = task.id
+    except Exception as e:
+        print(e)
 
     # Poll the task until it's complete
     print("Task created. Polling for status...")
@@ -657,7 +792,32 @@ def generate_video(file_path):
         if os.path.exists(file_path):
             os.remove(file_path)
         result_url = task.output[0]  # output is a list, so take the first element
-        return {"result_url": result_url}
+
+        video_file_path = "output.mp4"
+        response = requests.get(result_url, stream=True)
+
+        with open(video_file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        audio_path = full_audio_path
+
+        VIDEO_PATH = os.getenv("VIDEO_PATH")
+        output_path = os.path.join(ROOT_PATH, VIDEO_PATH.strip("/"), "video_with_audio.mp4")
+        return_path = os.path.join(VIDEO_PATH, "video_with_audio.mp4")
+        client_path = return_path.replace("/app", "")
+        # output_path = "video_with_audio.mp4"
+        video = VideoFileClip(video_file_path)
+        audio = AudioFileClip(audio_path).subclipped(0, video.duration)
+        video_with_audio = video.with_audio(audio)
+        video_with_audio.write_videofile(output_path, codec="libx264", audio_codec="aac")
+
+        # Close resources
+        video.close()
+        audio.close()
+        video_with_audio.close()
+
+        return {"result_url": client_path}
     else:
         print("Task failed.")
         # Log failure details

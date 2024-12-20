@@ -153,22 +153,28 @@ def publish_blog_post(driver, contents, file_path):
 
 
         # 제목 입력
-        title_field = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, title_field_xpath)))
-        pyperclip.copy(contents['Title'])
-        # print(contents['Title'])
-        time.sleep(1)
-        title_field.click()
-        pyautogui.hotkey('ctrl', 'v')  # 클립보드 내용 붙여넣기
-        time.sleep(1)
+        try:
+            title_field = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, title_field_xpath)))
+            pyperclip.copy(contents['Title'])
+            # print(contents['Title'])
+            time.sleep(1)
+            title_field.click()
+            pyautogui.hotkey('ctrl', 'v')  # 클립보드 내용 붙여넣기
+            time.sleep(1)
+        except Exception as e:
+            print(e)
+        # driver.save_screenshot("title.png")
 
         # 이미지 복사
         image_path = file_path
         copy_image_to_clipboard(image_path)  # 이미지 클립보드에 복사
+        
         # 이미지 붙여넣기
         content_field = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, content_field_xpath)))
         content_field.click()
         pyautogui.hotkey('ctrl', 'v')  # 이미지 붙여넣기
         time.sleep(1)
+        # driver.save_screenshot("IMAGE.png")
         # 내용 입력
         # content_field = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, content_field_xpath)))
         pyperclip.copy(contents['Contents'])
@@ -177,6 +183,7 @@ def publish_blog_post(driver, contents, file_path):
         pyautogui.press('enter')
         pyautogui.press('enter')
         pyautogui.hotkey('ctrl', 'v')  # 클립보드 내용 붙여넣기
+        # driver.save_screenshot("CONTENT.png")
         pyautogui.press('enter')
         time.sleep(1)
         pyautogui.press('enter')
@@ -184,10 +191,12 @@ def publish_blog_post(driver, contents, file_path):
         pyautogui.press('enter')
         pyperclip.copy(contents['Hashtags'])
         pyautogui.hotkey('ctrl', 'v')  # 클립보드 내용 붙여넣기
+        # driver.save_screenshot("TAG.png")
 
         # "발행" 버튼 클릭
         publish_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, publish_button_xpath)))
         publish_button.click()
+        # driver.save_screenshot("PUBLISH.png")
 
         # 발행 후의 처리가 필요한 경우를 위해 대기
         time.sleep(1)
