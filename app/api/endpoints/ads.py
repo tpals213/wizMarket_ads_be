@@ -131,6 +131,8 @@ def combine_ads(
     store_name: str = Form(...),
     road_name: str = Form(...),
     content: str = Form(...),
+    use_option: str = Form(...),
+    title: str = Form(...),
     image_width: int = Form(...),
     image_height: int = Form(...),
     image: UploadFile = File(...)
@@ -139,8 +141,14 @@ def combine_ads(
         pil_image = Image.open(image.file)
     except Exception as e:
         return {"error": f"Failed to open image: {str(e)}"}
-    # 서비스 레이어 호출 (Base64 이미지 반환)
-    image_1, image_2 = service_combine_ads(store_name, road_name, content, image_width, image_height, pil_image)
+    
+    if use_option == '인스타 피드':
+        # 서비스 레이어 호출 (Base64 이미지 반환)
+        image_1, image_2 = service_combine_ads(store_name, road_name, content, image_width, image_height, pil_image)
+    
+    else :
+        image_1, image_2 = service_combine_ads(store_name, road_name, content, image_width, image_height, pil_image)
+
     # JSON 응답으로 두 이미지를 반환
     return JSONResponse(content={"images": [image_1, image_2]})
 

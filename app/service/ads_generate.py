@@ -112,8 +112,8 @@ def generate_image_mid(
     use_option_propt_map = {
         '문자메시지': (9, 16),
         '유튜브 썸네일': (16, 9),
-        '인스타그램 스토리': (9, 16),
-        '인스타그램 피드': (1, 1),
+        '인스타그램 스토리': (1024, 1792),
+        '인스타그램 피드': (1024, 1024),
         '배너': (16, 9),
         '네이버 블로그': (9, 16)
     }
@@ -463,6 +463,62 @@ def combine_ads (store_name, road_name, content, image_width, image_height, imag
     image_1 = combine_ads_ver1(store_name, road_name, content, image_width, image_height, image, alignment="center")
     image_2 = combine_ads_ver2(store_name, road_name, content, image_width, image_height, image, alignment="center")
     return (image_1, image_2)
+
+
+
+
+# 이미지 사이즈 조정
+def resize_and_crop_image(image_width, image_height, image):
+
+    # 1. 가로 세로 모두 1024보다 작은 경우
+    if image_width < 1024 and image_height < 1024:
+        image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
+        image_width, image_height = 1024, 1024
+
+    # 2. 가로나 세로 둘 중 하나만 작은 경우
+    elif image_width < 1024 or image_height < 1024:
+        if image_width < 1024:  # 가로가 작을 경우
+            scale_factor = 1024 / image_width
+            new_height = int(image_height * scale_factor)
+            image = image.resize((1024, new_height), Image.Resampling.LANCZOS)
+            image_width, image_height = 1024, new_height
+        else:  # 세로가 작을 경우
+            scale_factor = 1024 / image_height
+            new_width = int(image_width * scale_factor)
+            image = image.resize((new_width, 1024), Image.Resampling.LANCZOS)
+            image_width, image_height = new_width, 1024
+
+        # 큰 쪽 잘라내기
+        if image_width > 1024:  # 가로가 1024를 넘으면 자름
+            left = (image_width - 1024) // 2
+            image = image.crop((left, 0, left + 1024, 1024))
+            image_width, image_height = 1024, 1024
+        elif image_height > 1024:  # 세로가 1024를 넘으면 자름
+            top = (image_height - 1024) // 2
+            image = image.crop((0, top, 1024, top + 1024))
+            image_width, image_height = 1024, 1024
+
+    # 3. 가로나 세로 둘 중 하나만 큰 경우
+    elif image_width > 1024 or image_height > 1024:
+        if image_width > 1024 and image_height <= 1024:  # 가로만 큰 경우
+            left = (image_width - 1024) // 2
+            image = image.crop((left, 0, left + 1024, image_height))
+            image_width = 1024
+        elif image_height > 1024 and image_width <= 1024:  # 세로만 큰 경우
+            top = (image_height - 1024) // 2
+            image = image.crop((0, top, image_width, top + 1024))
+            image_height = 1024
+
+    # 4. 가로 세로 모두 1024보다 큰 경우
+    elif image_width > 1024 and image_height > 1024:
+        left = (image_width - 1024) // 2
+        top = (image_height - 1024) // 2
+        image = image.crop((left, top, left + 1024, top + 1024))
+        image_width, image_height = 1024, 1024
+
+    return image_width, image_height, image
+
+    
     
 
 # 주제 + 문구 + 이미지 합치기
@@ -472,6 +528,8 @@ def combine_ads_ver1(store_name, road_name, content, image_width, image_height, 
     # RGBA 모드로 변환
     if image.mode != "RGBA":
         image = image.convert("RGBA")
+
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
   
     # 바탕 생성 및 합성
     rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "introduction_back.png") 
@@ -609,12 +667,15 @@ def combine_ads_ver1(store_name, road_name, content, image_width, image_height, 
 
 
 def combine_ads_ver2(store_name, road_name, content, image_width, image_height, image, alignment="center"):
+    # print(image_width, image_height)
     root_path = os.getenv("ROOT_PATH", ".")
     
     # RGBA 모드로 변환
     if image.mode != "RGBA":
         image = image.convert("RGBA")
 
+    # 이미지 크기 확인 및 리사이즈
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
 
     # 바탕 생성 및 합성
     rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "event_back.png")
@@ -638,8 +699,8 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     original_width, original_height = sp_image.size
 
     # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
-    new_width = int(image_width / 4)
-    new_height = int((new_width / original_width) * original_height)
+    new_width = 234
+    new_height = 234
     sp_image = sp_image.resize((new_width, new_height))
 
     # 4번 위치 (하단 오른쪽) 중심 좌표 계산
@@ -650,9 +711,9 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     image.paste(sp_image, (offset_x, offset_y), sp_image)
 
     # 텍스트 설정
-    top_path = os.path.join(root_path, "app", "static", "font", "JalnanGothicTTF.ttf") 
-    bottom_path = os.path.join(root_path, "app", "static", "font", "BMHANNA_11yrs_ttf.ttf") 
-    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
+    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "JalnanGothicTTF.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     top_font_size = 55
     bottom_font_size = 96
@@ -681,7 +742,7 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
 
     if len(lines) > 0:
         top_line = lines[0].strip()
-        lines_list = split_top_line(top_line, max_length=20)  # 반환값은 리스트
+        lines_list = split_top_line(top_line, max_length=15)  # 반환값은 리스트
 
         # 첫 번째 줄 렌더링 Y 좌표 설정
         top_text_y = image_height / 10
@@ -694,7 +755,7 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
                 top_text_width = top_font.getbbox(line)[2]
                 top_text_height = top_font.getbbox(line)[3]  # 텍스트 높이 계산
                 # 중앙 정렬 X 좌표 계산
-                top_text_x = (image_width - top_text_width) // 2
+                top_text_x = (image_width - 44 - 44 - top_text_width) // 2 + 44
 
                 # 텍스트 렌더링
                 draw.text((top_text_x, top_text_y), line, font=top_font, fill=(255, 255, 255))
@@ -727,7 +788,7 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
     # 하단 텍스트 추가
     bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
     line_height = bottom_font.getbbox("A")[3] + 3
-    text_y = (image_height ) // 5
+    text_y = 224
 
     for line in bottom_lines:
         line = line.strip()
