@@ -589,6 +589,7 @@ def combine_ads_ver1(store_name, road_name, content, image_width, image_height, 
     # lines = [re.sub(r'<[^>]+>', '', line).replace('\r', '').replace('\n', '') for line in lines]
     # lines = re.split(r'['']', content)  # 구두점, 쉼표, 줄바꿈 모두 처리
     # lines = [line.strip() for line in lines if line.strip()]
+    content = content.strip('"')
     lines = content
     # print(content)
     if len(lines) > 0:
@@ -742,7 +743,7 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
 
     if len(lines) > 0:
         top_line = lines[0].strip()
-        lines_list = split_top_line(top_line, max_length=15)  # 반환값은 리스트
+        lines_list = split_top_line(top_line, max_length=20)  # 반환값은 리스트
 
         # 첫 번째 줄 렌더링 Y 좌표 설정
         top_text_y = image_height / 10
@@ -783,7 +784,7 @@ def combine_ads_ver2(store_name, road_name, content, image_width, image_height, 
                     )
 
                 # Y 좌표를 다음 줄로 이동
-                top_text_y += top_text_height + 2 * line_padding
+                top_text_y += top_font.getbbox("A")[3] + 5
 
     # 하단 텍스트 추가
     bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
