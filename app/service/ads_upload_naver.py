@@ -7,6 +7,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pyperclip
+import os
+os.environ['DISPLAY'] = ":0.0"
 import pyautogui
 import time
 from PIL import ImageGrab, Image
