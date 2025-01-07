@@ -36,7 +36,7 @@ from app.service.ads_upload import (
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
 )
-from app.service.ads_upload_naver import upload_naver_ads as service_upload_naver_ads
+# from app.service.ads_upload_naver import upload_naver_ads as service_upload_naver_ads
 import traceback
 from fastapi.responses import JSONResponse
 from pathlib import Path
@@ -400,8 +400,8 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
             await service_upload_mms_ads(content, file_path)
         elif use_option == '유튜브 썸네일':
             service_upload_youtube_ads(content, store_name, tag, file_path)
-        elif use_option == '네이버 블로그':
-            service_upload_naver_ads(content, store_name, tag, file_path)
+        # elif use_option == '네이버 블로그':
+        #     service_upload_naver_ads(content, store_name, tag, file_path)
     except Exception as e:
         error_trace = traceback.format_exc()
         return JSONResponse(
