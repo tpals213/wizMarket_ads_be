@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
 from app.api.endpoints import ads
+from app.api.endpoints import webhook
 
 app = FastAPI()
 
@@ -34,6 +35,7 @@ async def read_root():
 
 
 app.include_router(ads.router, prefix="/ads")
+app.include_router(webhook.router, prefix="/ad")
 
 if __name__ == "__main__":
     import uvicorn
