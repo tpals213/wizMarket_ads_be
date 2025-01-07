@@ -80,6 +80,7 @@ def select_ads_init_info(store_business_number: str, request: Request):
 @router.post("/generate/content", response_model=AdsGenerateContentOutPut)
 def generate_content(request: AdsContentRequest):
     try:
+        print('깃허브 푸시용 테스트')
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         data = service_generate_content(
             request.prompt,
