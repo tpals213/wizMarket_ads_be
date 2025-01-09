@@ -58,7 +58,7 @@ def select_ads_init_info(store_business_number: str) -> AdsInitInfo:
                     COMMERCIAL_DISTRICT_AVG_CLIENT_PER_F_50S,
                     COMMERCIAL_DISTRICT_AVG_CLIENT_PER_F_60_OVER
                 FROM
-                    REPORT
+                    report
                 WHERE
                     STORE_BUSINESS_NUMBER = %s
                 ;
@@ -389,7 +389,7 @@ def select_ads_specific_store_name(store_business_number : str):
                 SELECT 
                     STORE_NAME
                 FROM
-                    REPORT
+                    report
                 WHERE
                     STORE_BUSINESS_NUMBER = %s
                 ;
