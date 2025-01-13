@@ -19,12 +19,9 @@ from app.service.ads import (
     select_ads_specific_info as service_select_ads_specific_info
 )
 from app.service.ads_generate import (
-    combine_ads as service_combine_ads,
     generate_content as service_generate_content,
     generate_image as service_generate_image,
     generate_video as service_generate_video,
-    combine_ads_ver1 as service_combine_ads_ver1,
-    combine_ads_ver2 as service_combine_ads_ver2,
     generate_new_content as service_generate_new_content,
     generate_old_content as service_generate_old_content,
     generate_claude_content as service_generate_claude_content,
@@ -36,6 +33,7 @@ from app.service.ads_upload import (
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
 )
+from app.service.ads_generate_by_title import combine_ads as service_combine_ads
 # from app.service.ads_upload_naver import upload_naver_ads as service_upload_naver_ads
 import traceback
 from fastapi.responses import JSONResponse
@@ -80,7 +78,7 @@ def select_ads_init_info(store_business_number: str, request: Request):
 @router.post("/generate/content", response_model=AdsGenerateContentOutPut)
 def generate_content(request: AdsContentRequest):
     try:
-        print('깃허브 푸시용 테스트')
+        # print('깃허브 푸시용 테스트')
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         data = service_generate_content(
             request.prompt,
@@ -145,13 +143,13 @@ def combine_ads(
     
     if use_option == '인스타 피드':
         # 서비스 레이어 호출 (Base64 이미지 반환)
-        image_1, image_2 = service_combine_ads(store_name, road_name, content, image_width, image_height, pil_image)
+        image = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
     
     else :
-        image_1, image_2 = service_combine_ads(store_name, road_name, content, image_width, image_height, pil_image)
+        image = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
 
     # JSON 응답으로 두 이미지를 반환
-    return JSONResponse(content={"images": [image_1, image_2]})
+    return JSONResponse(content={"images": [image]})
 
 # # ADS 텍스트, 이미지 합성
 # @router.post("/combine/image/text")
