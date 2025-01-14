@@ -142,14 +142,21 @@ def combine_ads(
         return {"error": f"Failed to open image: {str(e)}"}
     
     if use_option == '인스타 피드':
-        # 서비스 레이어 호출 (Base64 이미지 반환)
-        image = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
-    
+        if title == '이벤트':
+            # 서비스 레이어 호출 (Base64 이미지 반환)
+            image1, image2 = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
+            if image1 == image2:
+                print('이벤트 이미지가 같습니다.')
+            return JSONResponse(content={"images": [image1, image2]})
+        elif title == '매장 소개':
+            # 서비스 레이어 호출 (Base64 이미지 반환)
+            image1 = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
+            return JSONResponse(content={"images": [image1]})
     else :
         image = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
 
-    # JSON 응답으로 두 이미지를 반환
-    return JSONResponse(content={"images": [image]})
+        # JSON 응답으로 두 이미지를 반환
+        return JSONResponse(content={"images": [image]})
 
 # # ADS 텍스트, 이미지 합성
 # @router.post("/combine/image/text")
@@ -391,6 +398,7 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
 
     # 데이터 저장 호출
     try:
+        print(use_option)
         if use_option == '인스타그램 스토리':
             service_upload_story_ads(content, file_path)
         elif use_option == '인스타그램 피드':

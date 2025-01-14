@@ -46,6 +46,15 @@ client = OpenAI(api_key=api_key)
 INSTA_NAME = os.getenv("INSTA_NAME")
 INSTA_PW = os.getenv("INSTA_PW")
 
+
+# 인스타 테스트
+def test_insta():
+    cl = Client()
+    cl.login(INSTA_NAME, INSTA_PW)
+    user_id = cl.user_id_from_username(INSTA_NAME)
+    medias = cl.user_medias(user_id, 20)
+    print(medias)
+
 # ADS 인스타 스토리 업로드
 def upload_story_ads(content, file_path):
     try:
@@ -254,3 +263,5 @@ def upload_naver_ads():
         driver.quit()
 
 
+if __name__ == "__main__":
+    test_insta()
