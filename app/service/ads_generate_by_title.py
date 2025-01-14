@@ -124,7 +124,7 @@ def combine_ads_store_intro(store_name, road_name, content, image_width, image_h
     if image.mode != "RGBA":
         image = image.convert("RGBA")
 
-    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024)
   
     # 바탕 생성 및 합성
     rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "introduction_back.png") 
@@ -241,7 +241,7 @@ def combine_ads_event(store_name, road_name, content, image_width, image_height,
         image = image.convert("RGBA")
 
     # 이미지 크기 확인 및 리사이즈
-    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024)
 
     # 바탕 생성 및 합성
     rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_1_1.png")
@@ -417,7 +417,7 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
         image = image.convert("RGBA")
 
     # 이미지 크기 확인 및 리사이즈
-    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024)
 
     # 바탕 생성 및 합성
     rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_1_1.png")
@@ -434,7 +434,7 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
     image = Image.alpha_composite(image, combined_background)
 
     # 이미지 크기 확인 및 리사이즈
-    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024)
 
     # 투명 배경 생성 (1024x772 상단 투명)
     transparent_background = Image.new("RGBA", (image_width, 772), (0, 0, 0, 0))

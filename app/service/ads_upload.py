@@ -34,6 +34,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pymysql
 from moviepy import *
 from google_auth_oauthlib.flow import Flow
+from fastapi import FastAPI, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -121,6 +122,43 @@ full_audio_path = os.path.join(ROOT_PATH, AUDIO_PATH.strip("/"), "audio.mp3")
 
 
 # ADS 유튜브 업로드
+def upload_get_auth_url():
+    """OAuth 인증 URL 생성"""
+    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    REDIRECT_URI = "http://localhost:3002/ads/auth/callback"
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE, SCOPES, redirect_uri=REDIRECT_URI
+    )
+    auth_url, _ = flow.authorization_url(prompt="consent")
+    return {"auth_url": auth_url}
+
+
+def exchange_token(request: Request):
+    """클라이언트에서 받은 인증 코드로 액세스 토큰 교환"""
+    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    REDIRECT_URI = "http://localhost:3000/callback"
+    try:
+        body = request.json()
+        code = body.get("code")
+        if not code:
+            raise HTTPException(status_code=400, detail="Authorization code is missing")
+
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE, SCOPES, redirect_uri=REDIRECT_URI
+        )
+        flow.fetch_token(code=code)
+
+        credentials = flow.credentials
+        return {
+            "access_token": credentials.token,
+            "refresh_token": credentials.refresh_token,
+            "expires_in": credentials.expiry.isoformat(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Token exchange failed: {str(e)}")
+
 # 인증
 def get_authenticated_service():
     # InstalledAppFlow를 사용하여 OAuth 인증 수행

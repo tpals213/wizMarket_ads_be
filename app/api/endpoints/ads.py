@@ -31,6 +31,7 @@ from app.service.ads_upload import (
     upload_feed_ads as service_upload_feed_ads,
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
+    upload_get_auth_url as service_upload_get_auth_url
 )
 from app.service.ads_generate_by_title import (
     combine_ads_1_1 as service_combine_ads_1_1,
@@ -144,7 +145,7 @@ def combine_ads(
     except Exception as e:
         return {"error": f"Failed to open image: {str(e)}"}
     
-    if use_option == '인스타 피드':
+    if use_option == '인스타그램 피드':
         if title == '이벤트':
             # 서비스 레이어 호출 (Base64 이미지 반환)
             image1, image2 = service_combine_ads_1_1(store_name, road_name, content, title, image_width, image_height, pil_image)
@@ -405,13 +406,17 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
 
     # 데이터 저장 호출
     try:
-        print(use_option)
+        # print(use_option)
         if use_option == '인스타그램 스토리':
             service_upload_story_ads(content, file_path)
         elif use_option == '인스타그램 피드':
             service_upload_feed_ads(content, file_path)
         elif use_option == '문자메시지':
             await service_upload_mms_ads(content, file_path)
+        # elif use_option == '유튜브 썸네일':
+        #     auth_url = service_upload_get_auth_url()
+        #     print(auth_url)
+        #     return {"auth_url": auth_url}
         elif use_option == '유튜브 썸네일':
             service_upload_youtube_ads(content, store_name, tag, file_path)
         # elif use_option == '네이버 블로그':
