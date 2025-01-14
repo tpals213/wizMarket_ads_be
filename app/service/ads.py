@@ -5,9 +5,7 @@ from app.crud.ads import (
     delete_status as crud_delete_status,
     update_ads as crud_update_ads,
     update_ads_image as crud_update_ads_image,
-    select_ads_specific_info as crud_select_ads_specific_info,
-    select_ads_specific_image as crud_select_ads_specific_image,
-    select_ads_specific_store_name as crud_select_ads_specific_store_name
+
 )
 from app.schemas.ads import(
     AdsInitInfoOutPut, AdsInitInfo, WeatherInfo
@@ -221,20 +219,3 @@ def update_ads(store_business_number: str, use_option: str, title: str, detail_t
 
 
 
-# 홍보창 띄우기
-def select_ads_specific_info(ads_id : int):
-    data = crud_select_ads_specific_info(ads_id)
-    store_business_number = getattr(data, "store_business_number", "N/A")
-    store_name = crud_select_ads_specific_store_name(store_business_number)
-    ads_final_image_url = crud_select_ads_specific_image(ads_id)
-
-    # 데이터 합치기
-    specific_info = {
-        "use_option": getattr(data, "use_option", "N/A"),  # 객체의 속성 접근
-        "title": getattr(data, "title", "N/A"),
-        "content": getattr(data, "content", "N/A"),
-        "store_name": getattr(store_name, "store_name", "N/A"),
-        "ads_final_image_url": getattr(ads_final_image_url, "ads_final_image_url", "N/A"),  # image_url은 별도로 조회
-    }
-
-    return specific_info

@@ -16,7 +16,6 @@ from app.service.ads import (
     insert_ads as service_insert_ads,
     delete_status as service_delete_status,
     update_ads as service_update_ads,
-    select_ads_specific_info as service_select_ads_specific_info
 )
 from app.service.ads_generate import (
     generate_content as service_generate_content,
@@ -33,7 +32,11 @@ from app.service.ads_upload import (
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
 )
-from app.service.ads_generate_by_title import combine_ads as service_combine_ads
+from app.service.ads_generate_by_title import (
+    combine_ads_1_1 as service_combine_ads_1_1,
+    combine_ads_4_7 as service_combine_ads_4_7,
+    combine_ads_7_4 as service_combine_ads_7_4,
+)
 # from app.service.ads_upload_naver import upload_naver_ads as service_upload_naver_ads
 import traceback
 from fastapi.responses import JSONResponse
@@ -144,19 +147,23 @@ def combine_ads(
     if use_option == '인스타 피드':
         if title == '이벤트':
             # 서비스 레이어 호출 (Base64 이미지 반환)
-            image1, image2 = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
-            if image1 == image2:
-                print('이벤트 이미지가 같습니다.')
+            image1, image2 = service_combine_ads_1_1(store_name, road_name, content, title, image_width, image_height, pil_image)
             return JSONResponse(content={"images": [image1, image2]})
         elif title == '매장 소개':
             # 서비스 레이어 호출 (Base64 이미지 반환)
-            image1 = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
+            image1 = service_combine_ads_1_1(store_name, road_name, content, title, image_width, image_height, pil_image)
             return JSONResponse(content={"images": [image1]})
-    else :
-        image = service_combine_ads(store_name, road_name, content, title, image_width, image_height, pil_image)
+    elif use_option == '인스타그램 스토리' or use_option == '문자메시지':
+        if title == '이벤트':
+            # 서비스 레이어 호출 (Base64 이미지 반환)
+            image1 = service_combine_ads_4_7(store_name, road_name, content, title, image_width, image_height, pil_image)
+            return JSONResponse(content={"images": [image1]})
+        elif title == '매장 소개':
+            # 서비스 레이어 호출 (Base64 이미지 반환)
+            image1 = service_combine_ads_4_7(store_name, road_name, content, title, image_width, image_height, pil_image)
+            return JSONResponse(content={"images": [image1]})
 
-        # JSON 응답으로 두 이미지를 반환
-        return JSONResponse(content={"images": [image]})
+
 
 # # ADS 텍스트, 이미지 합성
 # @router.post("/combine/image/text")
@@ -427,23 +434,6 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
 
 
 
-# Ads 카톡 홍보용 url 만들기
-@router.post("/promote/detail")
-def select_ads_specific_info(ads_id: int):
-    try:
-        # 요청 정보 출력
-        # logger.info(f"Request received from {request.client.host}:{request.client.port}")
-        # logger.info(f"Request headers: {request.headers}")
-        # logger.info(f"Request path: {request.url.path}")
-        data = service_select_ads_specific_info(ads_id)
-        return data
-    except HTTPException as http_ex:
-        logger.error(f"HTTP error occurred: {http_ex.detail}")
-        raise http_ex
-    except Exception as e:
-        error_msg = f"Unexpected error while processing request: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
     
 
 # Ads 영상 만들기

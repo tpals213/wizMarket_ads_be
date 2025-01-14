@@ -8,7 +8,7 @@ from moviepy import *
 
 
 
-def combine_ads (store_name, road_name, content, title, image_width, image_height, image):
+def combine_ads_1_1 (store_name, road_name, content, title, image_width, image_height, image):
     if title == "매장 소개":
         image = combine_ads_store_intro(store_name, road_name, content, image_width, image_height, image, alignment="center")
         return image
@@ -16,6 +16,24 @@ def combine_ads (store_name, road_name, content, title, image_width, image_heigh
         image1 = combine_ads_event(store_name, road_name, content, image_width, image_height, image, alignment="center")
         image2 = combine_ads_event_ver2(store_name, road_name, content, image_width, image_height, image, alignment="center")
         return image1, image2
+    
+
+def combine_ads_4_7 (store_name, road_name, content, title, image_width, image_height, image):
+    if title == "매장 소개":
+        image = combine_ads_event_4_7(store_name, road_name, content, image_width, image_height, image)
+        return image
+    elif title == "이벤트":
+        image1 = combine_ads_event_4_7(store_name, road_name, content, image_width, image_height, image)
+        return image1
+    
+
+def combine_ads_7_4 (store_name, road_name, content, title, image_width, image_height, image):
+    if title == "매장 소개":
+        image = combine_ads_store_intro(store_name, road_name, content, image_width, image_height, image, alignment="center")
+        return image
+    elif title == "이벤트":
+        image1 = combine_ads_event(store_name, road_name, content, image_width, image_height, image, alignment="center")
+        return image1
 
 
 # 텍스트 자르기
@@ -45,64 +63,57 @@ def split_top_line(text, max_length):
     
     return result
 
-# 투명 텍스트를 별도의 레이어에 그리기
-def draw_transparent_text(image, text, font, position, rgba_color):
-    text_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))  # 투명 레이어 생성
-    draw = ImageDraw.Draw(text_layer)
-    draw.text(position, text, font=font, fill=rgba_color)  # RGBA 색상 적용
-    return Image.alpha_composite(image, text_layer)  # 원본 이미지와 합성
-
 
 # 이미지 사이즈 조정
-def resize_and_crop_image(image_width, image_height, image):
-
-    # 1. 가로 세로 모두 1024보다 작은 경우
-    if image_width < 1024 and image_height < 1024:
-        image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
-        image_width, image_height = 1024, 1024
+def resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024):
+    # 1. 가로 세로 모두 want_width와 want_height보다 작은 경우
+    if image_width < want_width and image_height < want_height:
+        image = image.resize((want_width, want_height), Image.Resampling.LANCZOS)
+        image_width, image_height = want_width, want_height
 
     # 2. 가로나 세로 둘 중 하나만 작은 경우
-    elif image_width < 1024 or image_height < 1024:
-        if image_width < 1024:  # 가로가 작을 경우
-            scale_factor = 1024 / image_width
+    elif image_width < want_width or image_height < want_height:
+        if image_width < want_width:  # 가로가 작을 경우
+            scale_factor = want_width / image_width
             new_height = int(image_height * scale_factor)
-            image = image.resize((1024, new_height), Image.Resampling.LANCZOS)
-            image_width, image_height = 1024, new_height
+            image = image.resize((want_width, new_height), Image.Resampling.LANCZOS)
+            image_width, image_height = want_width, new_height
         else:  # 세로가 작을 경우
-            scale_factor = 1024 / image_height
+            scale_factor = want_height / image_height
             new_width = int(image_width * scale_factor)
-            image = image.resize((new_width, 1024), Image.Resampling.LANCZOS)
-            image_width, image_height = new_width, 1024
+            image = image.resize((new_width, want_height), Image.Resampling.LANCZOS)
+            image_width, image_height = new_width, want_height
 
         # 큰 쪽 잘라내기
-        if image_width > 1024:  # 가로가 1024를 넘으면 자름
-            left = (image_width - 1024) // 2
-            image = image.crop((left, 0, left + 1024, 1024))
-            image_width, image_height = 1024, 1024
-        elif image_height > 1024:  # 세로가 1024를 넘으면 자름
-            top = (image_height - 1024) // 2
-            image = image.crop((0, top, 1024, top + 1024))
-            image_width, image_height = 1024, 1024
+        if image_width > want_width:  # 가로가 want_width를 넘으면 자름
+            left = (image_width - want_width) // 2
+            image = image.crop((left, 0, left + want_width, want_height))
+            image_width, image_height = want_width, want_height
+        elif image_height > want_height:  # 세로가 want_height를 넘으면 자름
+            top = (image_height - want_height) // 2
+            image = image.crop((0, top, want_width, top + want_height))
+            image_width, image_height = want_width, want_height
 
     # 3. 가로나 세로 둘 중 하나만 큰 경우
-    elif image_width > 1024 or image_height > 1024:
-        if image_width > 1024 and image_height <= 1024:  # 가로만 큰 경우
-            left = (image_width - 1024) // 2
-            image = image.crop((left, 0, left + 1024, image_height))
-            image_width = 1024
-        elif image_height > 1024 and image_width <= 1024:  # 세로만 큰 경우
-            top = (image_height - 1024) // 2
-            image = image.crop((0, top, image_width, top + 1024))
-            image_height = 1024
+    elif image_width > want_width or image_height > want_height:
+        if image_width > want_width and image_height <= want_height:  # 가로만 큰 경우
+            left = (image_width - want_width) // 2
+            image = image.crop((left, 0, left + want_width, image_height))
+            image_width = want_width
+        elif image_height > want_height and image_width <= want_width:  # 세로만 큰 경우
+            top = (image_height - want_height) // 2
+            image = image.crop((0, top, image_width, top + want_height))
+            image_height = want_height
 
-    # 4. 가로 세로 모두 1024보다 큰 경우
-    elif image_width > 1024 and image_height > 1024:
-        left = (image_width - 1024) // 2
-        top = (image_height - 1024) // 2
-        image = image.crop((left, top, left + 1024, top + 1024))
-        image_width, image_height = 1024, 1024
+    # 4. 가로 세로 모두 want_width와 want_height보다 큰 경우
+    elif image_width > want_width and image_height > want_height:
+        left = (image_width - want_width) // 2
+        top = (image_height - want_height) // 2
+        image = image.crop((left, top, left + want_width, top + want_height))
+        image_width, image_height = want_width, want_height
 
-    return image_width, image_height, image
+    return want_width, want_height, image
+
 
     
 # 주제 + 문구 + 이미지 합치기
@@ -233,7 +244,7 @@ def combine_ads_event(store_name, road_name, content, image_width, image_height,
     image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
 
     # 바탕 생성 및 합성
-    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "event_back.png")
+    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_1_1.png")
     rectangle = Image.open(rectangle_path).convert("RGBA")
     
     # 새로운 이미지 크기 계산
@@ -409,7 +420,7 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
     image_width, image_height, image = resize_and_crop_image(image_width, image_height, image)
 
     # 바탕 생성 및 합성
-    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "event_back.png")
+    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_1_1.png")
     rectangle = Image.open(rectangle_path).convert("RGBA")
     
     # 새로운 이미지 크기 계산
@@ -528,6 +539,129 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
     road_name_width = road_name_font.getbbox(road_name)[2]
     road_name_x = (image_width - road_name_width) // 2
     road_name_y = 925
+    draw.text((road_name_x, road_name_y), road_name, font=road_name_font, fill=fill_color)
+
+
+    # 이미지 메모리에 저장
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    # Base64 인코딩
+    base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return f"data:image/png;base64,{base64_image}"
+
+
+def combine_ads_event_4_7(store_name, road_name, content, image_width, image_height, image):
+    # print(image_width, image_height)
+    root_path = os.getenv("ROOT_PATH", ".")
+    # print(image)
+    # RGBA 모드로 변환
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+
+    # 이미지 크기 확인 및 리사이즈
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1792)
+
+    # 바탕 생성 및 합성
+    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7.png")
+    rectangle = Image.open(rectangle_path).convert("RGBA")
+    
+    # Rectangle 이미지 크기 확인
+    rectangle_width, rectangle_height = rectangle.size
+
+    # 투명 배경 생성: 이미지2 하단에 추가 (전체 높이 1792로 맞춤)
+    transparent_height = image_height - rectangle_height
+    transparent_background = Image.new("RGBA", (rectangle_width, transparent_height), (0, 0, 0, 0))  # 투명 배경 생성
+
+    # Rectangle과 투명 배경 합성
+    combined_rectangle = Image.new("RGBA", (rectangle_width, image_height), (0, 0, 0, 0))  # 전체 크기: 1024x1792
+    combined_rectangle.paste(rectangle, (0, 0))  # Rectangle 상단 배치
+    combined_rectangle.paste(transparent_background, (0, rectangle_height))  # 투명 배경 하단 배치
+
+    # 이미지1(image)와 Rectangle 합성
+    image = Image.alpha_composite(image, combined_rectangle)
+
+    # 텍스트 설정
+    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    top_font_size = 110
+    bottom_font_size = 80
+    store_name_font_size = 48
+    road_name_font_size = 48
+
+    # 폰트 설정
+    top_font = ImageFont.truetype(top_path, int(top_font_size))
+    bottom_font = ImageFont.truetype(bottom_path, int(bottom_font_size))
+    store_name_font = ImageFont.truetype(store_name_path, int(store_name_font_size))
+    road_name_font = ImageFont.truetype(road_name_path, int(road_name_font_size))
+
+    # 텍스트 렌더링 (합성 작업 후)
+    draw = ImageDraw.Draw(image)
+
+    # 텍스트를 '<br>'로 구분하여 줄 나누기
+    # lines = content.split(' ')
+    # lines = [re.sub(r'<[^>]+>', '', line).replace('\r', '').replace('\n', '') for line in lines]
+    # lines = re.findall(r'[^.!?,\n]+[.!?,]?', content)
+    # lines = [line.strip() for line in lines if line.strip()]  # 공백 제거 및 빈 문자열 제외
+
+    lines = re.findall(r':\s*(.*)', content)  # ':' 이후의 텍스트만 추출
+    lines = [line.strip() for line in lines if line.strip()]  # 공백 제거 및 빈 문자열 제외
+
+    # print(lines)
+
+    if len(lines) > 0:
+        top_line = lines[0].strip()
+        lines_list = split_top_line(top_line, max_length=7)  # 반환값은 리스트
+
+        # 첫 번째 줄 렌더링 Y 좌표 설정
+        top_text_y = 147
+
+        # 반복적으로 각 줄 렌더링
+        for i, line in enumerate(lines_list):
+            if line:  # 줄이 존재할 경우만 처리
+                # 중앙 정렬 X 좌표 계산
+                top_text_x = 76
+                # 텍스트 렌더링
+                draw.text((top_text_x, top_text_y), line, font=top_font, fill=(255, 255, 255, 10))
+                # print(line)
+                # Y 좌표를 다음 줄로 이동
+                top_text_y += top_font.getbbox("A")[3] + 5
+
+    # 하단 텍스트 추가
+    bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
+    line_height = bottom_font.getbbox("A")[3] + 4
+    text_y = 484
+
+    for line in bottom_lines:
+        line = line.strip()
+        # 하단 줄을 분리하여 20자 이상일 경우 나눔
+        split_lines = split_top_line(line, max_length=12)
+
+        for i, sub_line in enumerate(split_lines):
+            sub_line = sub_line.strip()
+            text_width = bottom_font.getbbox(sub_line)[2]
+
+            text_x = 84
+
+            draw.text((text_x, text_y), sub_line, font=bottom_font, fill="#FFFFFF")
+            text_y += line_height  # 다음 줄로 이동
+
+    # store_name 추가
+    store_name_width = store_name_font.getbbox(store_name)[2]
+    store_name_x = (image_width - store_name_width) // 2
+    store_name_y = 1563
+    draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill="white")
+
+    fill_color = (255, 255, 255, int(255 * 0.8))  # RGBA
+
+    # road_name 추가
+    road_name_width = road_name_font.getbbox(road_name)[2]
+    road_name_x = (image_width - road_name_width) // 2
+    road_name_y = 1639
     draw.text((road_name_x, road_name_y), road_name, font=road_name_font, fill=fill_color)
 
 
