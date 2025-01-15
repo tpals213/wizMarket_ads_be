@@ -413,12 +413,12 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
             service_upload_feed_ads(content, file_path)
         elif use_option == '문자메시지':
             await service_upload_mms_ads(content, file_path)
-        # elif use_option == '유튜브 썸네일':
-        #     auth_url = service_upload_get_auth_url()
-        #     print(auth_url)
-        #     return {"auth_url": auth_url}
         elif use_option == '유튜브 썸네일':
-            service_upload_youtube_ads(content, store_name, tag, file_path)
+            auth_url = service_upload_get_auth_url()
+            print(auth_url)
+            return auth_url
+        # elif use_option == '유튜브 썸네일':
+        #     service_upload_youtube_ads(content, store_name, tag, file_path)
         # elif use_option == '네이버 블로그':
         #     service_upload_naver_ads(content, store_name, tag, file_path)
     except Exception as e:
