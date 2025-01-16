@@ -154,3 +154,7 @@ class AdsSpecificInitStoreName(BaseModel):
 
     class Config:
         from_attributes = True
+
+# 유튜브 인증
+class AuthCallbackRequest(BaseModel):
+    code: str

@@ -615,7 +615,7 @@ def combine_ads_event_4_7(store_name, road_name, content, image_width, image_hei
 
     if len(lines) > 0:
         top_line = lines[0].strip()
-        lines_list = split_top_line(top_line, max_length=7)  # 반환값은 리스트
+        lines_list = split_top_line(top_line, max_length=8)  # 반환값은 리스트
 
         # 첫 번째 줄 렌더링 Y 좌표 설정
         top_text_y = 147

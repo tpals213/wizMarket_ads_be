@@ -5,12 +5,14 @@ from app.schemas.ads import (
     AdsList, AdsInitInfoOutPut,
     AdsGenerateContentOutPut, AdsContentRequest,
     AdsGenerateImageOutPut, AdsImageRequest,
-    AdsDeleteRequest, AdsContentNewRequest
+    AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest
 )
-from fastapi import Request
+from fastapi import Request, Body
 from PIL import Image
 import logging
 from typing import List
+from google_auth_oauthlib.flow import Flow
+
 from app.service.ads import (
     select_ads_init_info as service_select_ads_init_info,
     insert_ads as service_insert_ads,
@@ -42,13 +44,16 @@ from app.service.ads_generate_by_title import (
 import traceback
 from fastapi.responses import JSONResponse
 from pathlib import Path
-from fastapi.responses import JSONResponse
 import shutil
 from typing import Optional
 from dotenv import load_dotenv
 from datetime import datetime
 import os
 import uuid
+import json
+
+
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -374,13 +379,20 @@ def update_ads(
 
 # 업로드
 @router.post("/upload")
-async def upload_ads(use_option: str = Form(...), content: str = Form(...), store_name: str = Form(...), tag: str = Form(...), upload_image: UploadFile = File(None)):
+async def upload_ads(
+    use_option: str = Form(...), 
+    content: str = Form(...), 
+    store_name: str = Form(...), 
+    tag: str = Form(...), 
+    upload_image: UploadFile = File(None),
+    access_token: str = Form(None),
+):
     """
     광고 업로드 엔드포인트
     """
     final_image_url = None
-
-    # 파이널 이미지 파일 처리
+    # print(access_token)
+    # 1. 파이널 이미지 파일 처리
     if upload_image:
         try:
             filename, ext = os.path.splitext(upload_image.filename)
@@ -395,51 +407,109 @@ async def upload_ads(use_option: str = Form(...), content: str = Form(...), stor
             # 파이널 이미지 URL 생성
             final_image_url = f"/static/images/ads/{unique_filename}"
         except Exception as e:
-            error_trace = traceback.format_exc()
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={
                     "detail": f"Error saving final_image file: {str(e)}",
-                    "traceback": error_trace
+                    "traceback": traceback.format_exc()
                 }
             )
 
-    # 데이터 저장 호출
+    # 2. 유튜브 썸네일 처리
+    if use_option == "유튜브 썸네일":
+        # 토큰이 없는 경우 인증 URL 반환
+        if not access_token:
+            state = json.dumps({
+                "content": content,
+                "store_name": store_name,
+                "tag": tag,
+                "file_path": file_path,
+            })
+
+            auth_url = service_upload_get_auth_url(state=state)
+            return {"auth_url": auth_url["auth_url"]}
+
+    # 3. 다른 업로드 옵션 처리
     try:
-        # print(use_option)
-        if use_option == '인스타그램 스토리':
+        if use_option == "인스타그램 스토리":
             service_upload_story_ads(content, file_path)
-        elif use_option == '인스타그램 피드':
+        elif use_option == "인스타그램 피드":
             service_upload_feed_ads(content, file_path)
-        elif use_option == '문자메시지':
+        elif use_option == "문자메시지":
             await service_upload_mms_ads(content, file_path)
-        elif use_option == '유튜브 썸네일':
-            auth_url = service_upload_get_auth_url()
-            print(auth_url)
-            return auth_url
         # elif use_option == '유튜브 썸네일':
         #     service_upload_youtube_ads(content, store_name, tag, file_path)
         # elif use_option == '네이버 블로그':
         #     service_upload_naver_ads(content, store_name, tag, file_path)
     except Exception as e:
-        error_trace = traceback.format_exc()
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "detail": f"Error inserting ad data: {str(e)}",
-                "traceback": error_trace
+                "detail": f"Error processing ad data: {str(e)}",
+                "traceback": traceback.format_exc()
             }
         )
 
-    # 성공 응답 반환
+    # 4. 성공 응답 반환
     return {
         "content": content,
         "final_image_url": final_image_url
     }
 
 
+ROOT_PATH = os.getenv("ROOT_PATH")
+AUTH_PATH = os.getenv("AUTH_PATH")
 
-    
+@router.post("/auth/callback")
+def youtube_auth_callback(request: AuthCallbackRequest):
+    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    REDIRECT_URI = "http://localhost:3002/ads/auth/callback"
+
+    code = request.code
+    try:
+        # Google OAuth Flow 초기화
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            SCOPES,
+            redirect_uri=REDIRECT_URI,
+        )
+
+        # 인증 코드로 액세스 토큰 교환
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+
+        # 반환된 액세스 토큰
+        access_token = credentials.token
+        return {"access_token": access_token}
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": f"Error exchanging auth code: {str(e)}"},
+        )
+
+
+
+# 유튜브 업로드 영상
+@router.post("/upload/youtube")
+async def upload_youtube_ads(
+    content: str = Form(...), 
+    store_name: str = Form(...), 
+    tag: str = Form(...), 
+    file_path: str = Form(None),
+    access_token: str = Form(None),
+):
+    try:
+        response = service_upload_youtube_ads(content, store_name, tag, file_path, access_token)
+        return {"youtube_response": response}
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": f"Error uploading to YouTube: {str(e)}"},
+        )
+
+
+
 
 # Ads 영상 만들기
 @router.post("/generate/video")

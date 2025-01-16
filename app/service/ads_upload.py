@@ -35,6 +35,7 @@ import pymysql
 from moviepy import *
 from google_auth_oauthlib.flow import Flow
 from fastapi import FastAPI, HTTPException, Request
+from google.oauth2.credentials import Credentials
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -122,54 +123,30 @@ full_audio_path = os.path.join(ROOT_PATH, AUDIO_PATH.strip("/"), "audio.mp3")
 
 
 # ADS 유튜브 업로드
-def upload_get_auth_url():
-    """OAuth 인증 URL 생성"""
+def upload_get_auth_url(state=None):
+    """Google OAuth 인증 URL 생성"""
     CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
     REDIRECT_URI = "http://localhost:3002/ads/auth/callback"
+
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, SCOPES, redirect_uri=REDIRECT_URI
+        CLIENT_SECRETS_FILE,
+        SCOPES,
+        redirect_uri=REDIRECT_URI,
     )
-    auth_url, _ = flow.authorization_url(prompt="consent")
+
+    auth_url, _ = flow.authorization_url(prompt="consent", state=state)
     return {"auth_url": auth_url}
 
 
-def exchange_token(request: Request):
-    """클라이언트에서 받은 인증 코드로 액세스 토큰 교환"""
-    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
-    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-    REDIRECT_URI = "http://localhost:3000/callback"
-    try:
-        body = request.json()
-        code = body.get("code")
-        if not code:
-            raise HTTPException(status_code=400, detail="Authorization code is missing")
 
-        flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, SCOPES, redirect_uri=REDIRECT_URI
-        )
-        flow.fetch_token(code=code)
-
-        credentials = flow.credentials
-        return {
-            "access_token": credentials.token,
-            "refresh_token": credentials.refresh_token,
-            "expires_in": credentials.expiry.isoformat(),
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Token exchange failed: {str(e)}")
 
 # 인증
-def get_authenticated_service():
-    # InstalledAppFlow를 사용하여 OAuth 인증 수행
-    # CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth.json")
-    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
-    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-    flow = InstalledAppFlow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, SCOPES
-    )
-    # 로컬 서버를 실행하여 인증을 수행
-    credentials = flow.run_local_server(port=8080, prompt="consent", authorization_prompt_message="")
+def get_authenticated_service(access_token):
+    """
+    인증된 YouTube API 서비스 생성
+    """
+    credentials = Credentials(access_token)  # 인증된 토큰으로 Credentials 객체 생성
     return build("youtube", "v3", credentials=credentials)
 
 # 업로드
@@ -195,7 +172,10 @@ def upload_video(youtube, file, title, description, tags, category_id):
 
 
 # 사진 영상 변환
-def upload_youtube_ads(content, store_name, tag, file_path):
+def upload_youtube_ads(content, store_name, tag, file_path, access_token):
+    """
+    YouTube 광고 업로드
+    """
     # 이미지 파일 경로
     img_file = file_path
 
@@ -204,11 +184,10 @@ def upload_youtube_ads(content, store_name, tag, file_path):
     if img is None:
         print(f"이미지를 불러올 수 없습니다: {img_file}")
         return
-    
+
     # 이미지의 크기 가져오기 (가로, 세로)
     height, width, _ = img.shape
     frame_size = (width, height)  # 이미지 크기를 그대로 사용
-
 
     fps = 24  # 초당 프레임
     duration = 5  # 동영상 길이 (초)
@@ -228,6 +207,7 @@ def upload_youtube_ads(content, store_name, tag, file_path):
 
     out.release()
 
+    # 오디오 추가
     audio_path = full_audio_path
     output_path = "video_with_audio.mp4"
     video = VideoFileClip(video_file_path)
@@ -236,8 +216,10 @@ def upload_youtube_ads(content, store_name, tag, file_path):
     video_with_audio.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
     try:
-        # YouTube 업로드
-        youtube_service = get_authenticated_service()
+        # YouTube API 클라이언트 생성
+        youtube_service = get_authenticated_service(access_token)
+
+        # 동영상 업로드
         upload_video(
             youtube=youtube_service,
             file=output_path,  # 업로드할 동영상 경로
@@ -247,18 +229,19 @@ def upload_youtube_ads(content, store_name, tag, file_path):
             category_id="22"  # 카테고리 ID (22: People & Blogs)
         )
 
-
         # 업로드 성공 시 파일 삭제
-        if os.path.exists(video_file_path):
-            os.remove(file_path)
-            os.remove(video_file_path)
-            os.remove(output_path)
-            print(f"동영상 파일 삭제 완료: {video_file_path}")
+        for file in [file_path, video_file_path, output_path]:
+            if os.path.exists(file):
+                os.remove(file)
+                print(f"파일 삭제 완료: {file}")
 
     except Exception as e:
         print(f"업로드 중 오류 발생: {e}")
-        if os.path.exists(video_file_path):
-            print(f"동영상 파일을 삭제하지 않았습니다: {video_file_path}")
+        # 업로드 실패 시 파일 삭제 여부는 선택적
+        for file in [video_file_path, output_path]:
+            if os.path.exists(file):
+                print(f"동영상 파일을 삭제하지 않았습니다: {file}")
+
 
 
 
