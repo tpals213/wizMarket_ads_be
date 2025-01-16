@@ -139,10 +139,21 @@ def upload_get_auth_url(state=None):
     return {"auth_url": auth_url}
 
 
+def get_authenticated_service():
+    # InstalledAppFlow를 사용하여 OAuth 인증 수행
+    # CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth.json")
+    CLIENT_SECRETS_FILE = os.path.join(ROOT_PATH, AUTH_PATH.lstrip("/"), "google_auth_wiz.json")
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    flow = InstalledAppFlow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE, SCOPES
+    )
+    # 로컬 서버를 실행하여 인증을 수행
+    credentials = flow.run_local_server(port=8080, prompt="consent", authorization_prompt_message="")
+    return build("youtube", "v3", credentials=credentials)
 
 
 # 인증
-def get_authenticated_service(access_token):
+def get_authenticated_service2(access_token):
     """
     인증된 YouTube API 서비스 생성
     """
@@ -172,7 +183,7 @@ def upload_video(youtube, file, title, description, tags, category_id):
 
 
 # 사진 영상 변환
-def upload_youtube_ads(content, store_name, tag, file_path, access_token):
+def upload_youtube_ads(content, store_name, tag, file_path):
     """
     YouTube 광고 업로드
     """
@@ -217,7 +228,7 @@ def upload_youtube_ads(content, store_name, tag, file_path, access_token):
 
     try:
         # YouTube API 클라이언트 생성
-        youtube_service = get_authenticated_service(access_token)
+        youtube_service = get_authenticated_service()
 
         # 동영상 업로드
         upload_video(
@@ -230,17 +241,16 @@ def upload_youtube_ads(content, store_name, tag, file_path, access_token):
         )
 
         # 업로드 성공 시 파일 삭제
-        for file in [file_path, video_file_path, output_path]:
-            if os.path.exists(file):
-                os.remove(file)
-                print(f"파일 삭제 완료: {file}")
+        if os.path.exists(video_file_path):
+            os.remove(file_path)
+            os.remove(video_file_path)
+            os.remove(output_path)
+            print(f"동영상 파일 삭제 완료: {video_file_path}")
 
     except Exception as e:
         print(f"업로드 중 오류 발생: {e}")
-        # 업로드 실패 시 파일 삭제 여부는 선택적
-        for file in [video_file_path, output_path]:
-            if os.path.exists(file):
-                print(f"동영상 파일을 삭제하지 않았습니다: {file}")
+        if os.path.exists(video_file_path):
+            print(f"동영상 파일을 삭제하지 않았습니다: {video_file_path}")
 
 
 

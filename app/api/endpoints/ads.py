@@ -385,7 +385,6 @@ async def upload_ads(
     store_name: str = Form(...), 
     tag: str = Form(...), 
     upload_image: UploadFile = File(None),
-    access_token: str = Form(None),
 ):
     """
     광고 업로드 엔드포인트
@@ -415,19 +414,19 @@ async def upload_ads(
                 }
             )
 
-    # 2. 유튜브 썸네일 처리
-    if use_option == "유튜브 썸네일":
-        # 토큰이 없는 경우 인증 URL 반환
-        if not access_token:
-            state = json.dumps({
-                "content": content,
-                "store_name": store_name,
-                "tag": tag,
-                "file_path": file_path,
-            })
+    # # 2. 유튜브 썸네일 처리
+    # if use_option == "유튜브 썸네일":
+    #     # 토큰이 없는 경우 인증 URL 반환
+    #     if not access_token:
+    #         state = json.dumps({
+    #             "content": content,
+    #             "store_name": store_name,
+    #             "tag": tag,
+    #             "file_path": file_path,
+    #         })
 
-            auth_url = service_upload_get_auth_url(state=state)
-            return {"auth_url": auth_url["auth_url"]}
+    #         auth_url = service_upload_get_auth_url(state=state)
+    #         return {"auth_url": auth_url["auth_url"]}
 
     # 3. 다른 업로드 옵션 처리
     try:
@@ -437,8 +436,8 @@ async def upload_ads(
             service_upload_feed_ads(content, file_path)
         elif use_option == "문자메시지":
             await service_upload_mms_ads(content, file_path)
-        # elif use_option == '유튜브 썸네일':
-        #     service_upload_youtube_ads(content, store_name, tag, file_path)
+        elif use_option == '유튜브 썸네일':
+            service_upload_youtube_ads(content, store_name, tag, file_path)
         # elif use_option == '네이버 블로그':
         #     service_upload_naver_ads(content, store_name, tag, file_path)
     except Exception as e:
