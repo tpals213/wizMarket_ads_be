@@ -162,8 +162,8 @@ def combine_ads(
     elif use_option == '인스타그램 스토리' or use_option == '문자메시지':
         if title == '이벤트':
             # 서비스 레이어 호출 (Base64 이미지 반환)
-            image1 = service_combine_ads_4_7(store_name, road_name, content, title, image_width, image_height, pil_image)
-            return JSONResponse(content={"images": [image1]})
+            image1, image2 = service_combine_ads_4_7(store_name, road_name, content, title, image_width, image_height, pil_image)
+            return JSONResponse(content={"images": [image1, image2]})
         elif title == '매장 소개':
             # 서비스 레이어 호출 (Base64 이미지 반환)
             image1 = service_combine_ads_4_7(store_name, road_name, content, title, image_width, image_height, pil_image)
