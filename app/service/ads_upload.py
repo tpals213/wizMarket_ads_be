@@ -48,6 +48,20 @@ client = OpenAI(api_key=api_key)
 INSTA_NAME = os.getenv("INSTA_NAME")
 INSTA_PW = os.getenv("INSTA_PW")
 
+# ADS 인스타 기본 정보 가져오기
+def upload_insta_info_ads():
+    try:
+        cl = Client()
+        cl.login(INSTA_NAME, INSTA_PW)
+        user_id = cl.user_id_from_username(INSTA_NAME) 
+        user_info = cl.user_info(user_id)
+        follower_count = user_info.follower_count  # 팔로워 수
+        media_count = user_info.media_count  # 게시물 수
+        return INSTA_NAME, follower_count, media_count
+    except Exception as e:
+        print(f"스토리 업로드 중 오류가 발생했습니다: {e}")
+
+
 # ADS 인스타 스토리 업로드
 def upload_story_ads(content, file_path):
     try:
@@ -286,3 +300,5 @@ def upload_naver_ads():
 
 
 
+if __name__=="__main__":
+    upload_insta_info_ads()

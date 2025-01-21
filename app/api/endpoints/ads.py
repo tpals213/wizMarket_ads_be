@@ -5,7 +5,8 @@ from app.schemas.ads import (
     AdsList, AdsInitInfoOutPut,
     AdsGenerateContentOutPut, AdsContentRequest,
     AdsGenerateImageOutPut, AdsImageRequest,
-    AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest
+    AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
+    AdsTestRequest, AdsSuggestChannelRequest
 )
 from fastapi import Request, Body
 from PIL import Image
@@ -33,7 +34,8 @@ from app.service.ads_upload import (
     upload_feed_ads as service_upload_feed_ads,
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
-    upload_get_auth_url as service_upload_get_auth_url
+    upload_get_auth_url as service_upload_get_auth_url,
+    upload_insta_info_ads as service_upload_insta_info_ads
 )
 from app.service.ads_generate_by_title import (
     combine_ads_1_1 as service_combine_ads_1_1,
@@ -81,9 +83,251 @@ def select_ads_init_info(store_business_number: str, request: Request):
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
     
-    
 
-# 모달창에서 문구 생성하기
+# 광고 채널 추천
+@router.post("/suggest/channel")
+def select_ads_init_info(request: AdsSuggestChannelRequest):
+    # 쿼리 매개변수로 전달된 store_business_number 값 수신
+    try:
+        gpt_role = '''
+            다음과 같은 매장에서 온라인 홍보 콘텐츠를 제작하여 포스팅하려고 합니다. 
+            이 매장에서 가장 좋은 포스팅 채널은 무엇이 좋겠습니까? 
+            제시된 채널 중에 하나를 선택해주고 그 이유와 홍보전략을 300자 내외로 작성해주세요.
+        '''
+
+        prompt = f'''
+            매장명 : {request.store_name}
+            주소 : {request.road_name}
+            업종 : {request.tag}
+            주 고객층 : {request.male_base}, {request.female_base}
+            홍보 주제 : {request.title}
+            온라인 홍보채널 : 문자메시지, 인스타그램 스토리, 인스타그램 피드, 네이버 블로그, 카카오톡, 자사 홈페이지, 페이스북, 디스코드, 트위터, 미디엄, 네이버 밴드, 캐치테이블, 배달의 민족
+        '''
+
+        detail_contet = "값 없음"
+
+        channel = service_generate_content(
+            prompt,
+            gpt_role,
+            detail_contet
+        )
+        return {"chan": channel}
+    except Exception as e:
+        print(f"Error occurred: {e}, 문구 생성 오류")
+
+
+# 업로드 된 이미지 처리
+@router.post("/generate/exist/image")
+def generate_image_with_text(
+    store_name: str = Form(...),
+    road_name: str = Form(...),
+    tag: str = Form(...),
+    weather: str = Form(...),
+    temp: float = Form(...),
+    male_base: str = Form(...),
+    female_base: str = Form(...),
+    gpt_role: str = Form(...),
+    detail_content: str = Form(...),
+    use_option: str = Form(...),
+    title: str = Form(...),
+    image: UploadFile = File(...)
+):
+    images_list = []
+    print(image)
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+            copyright_prompt = f'''
+                매장명 : {store_name}
+                주소 : {road_name}
+                업종 : {tag}
+                날짜 : {formattedToday}
+                날씨 : {weather}, {temp}℃
+                매출이 가장 높은 남성 연령대 : {male_base}
+                매출이 가장 높은 여성 연령대 : {female_base}
+            '''
+            copyright = service_generate_content(
+                copyright_prompt,
+                gpt_role,
+                detail_content
+            )
+            
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+
+        # 이미지와 문구 합성
+        try:
+            pil_image = Image.open(image.file)
+            image_width, image_height = pil_image.size
+
+            if use_option == '인스타그램 피드':
+                if title == '이벤트':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1, image2 = service_combine_ads_1_1(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.extend([image1, image2])
+                elif title == '매장 소개':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1 = service_combine_ads_1_1(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.append(image1)
+            elif use_option == '인스타그램 스토리' or use_option == '문자메시지':
+                if title == '이벤트':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1, image2 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.extend([image1, image2])
+                elif title == '매장 소개':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.append(image1)
+
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 합성 오류")
+        # 문구와 합성된 이미지 반환
+        return JSONResponse(content={"copyright": copyright, "images": images_list})
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+# 테스트용
+@router.post("/upload/content")
+def generate_upload(request: AdsTestRequest):
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+            copyright_prompt = f'''
+                매장명 : {request.store_name}
+                주소 : {request.road_name}
+                업종 : {request.tag}
+                날짜 : {formattedToday}
+                날씨 : {request.weather}, {request.temp}℃
+                매출이 가장 높은 남성 연령대 : {request.male_base}
+                매출이 가장 높은 여성 연령대 : {request.female_base}
+            '''
+
+            copyright = service_generate_content(
+                copyright_prompt,
+                request.gpt_role,
+                request.detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+        
+        # 스토리 생성
+        try:
+            korean_story_prompt = f"""
+                - 세부업종 : {request.tag}
+                - 날짜 : {formattedToday}
+                - 날씨 : {request.weather}, {request.temp}℃
+                - 매출이 가장 높은 남성 연령대 : {request.male_base}
+                - 매출이 가장 높은 여성 연령대 : {request.female_base}
+                - 장소 : {request.road_name}
+                - 추가정보 내용 : {request.detail_content}
+                - 홍보채널 : {request.use_option}
+                - 홍보채널에 포스팅되는 이미지나 동영상의 특징을 살려서 매장의 특성과 브랜드를 잘 느낄 수 있을것. 
+                - 주요고객이 오늘의 날씨와 환경, 날짜, 장소의 특징을 감안하여 매장에 대한 호감도를 느낄 수 있는 스토리를 작성할 것
+                - 매장의 세부업종에 따른 이미지 컨셉을 도출하여 스토리에 접목시킬 것
+            """
+            korean_story_gpt_role = f'''
+                우수한 마케터의 역할과 역량을 학습한 이후 아래와 같은 내용의 마케팅 스토리를 300자 내외로 작성해주세요.
+            '''
+
+            detail_content = "값 없음"
+
+            korean_story = service_generate_content(
+                korean_story_prompt,
+                korean_story_gpt_role,
+                detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 스토리 생성 오류")
+
+        # 스토리를 바탕으로 한 이미지 프롬프트 생성
+        try:
+            korean_image_gpt_role = f'''
+                - 이 스토리로 dalle AI를 통해 {request.use_option}에 업로드할 이미지를 생성하기 위한 프롬프트를 작성해주세요. 
+                - 프롬프트를 작성할때 스토리에 어울리는 이미지 스타일, 구도, 방식, 50대 남성의 감성에 어울리는 이미지를 생성할 수 있도록 작성해주세요.
+
+                이미지 스타일 사례
+                - 3D 그래픽, 2D그래픽, 일러스트레이션, 페이퍼 크라프트, 일본 애니메이션, 만화책, 사진, 디오라마, 아이소메트릭, 광고포스터, 판타지, 타이포그라피 등
+            '''
+
+            detail_content = "값 없음"
+
+            korean_image_prompt = service_generate_content(
+                korean_story,
+                korean_image_gpt_role,
+                detail_content
+            )
+            print(korean_image_prompt)
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 생성 오류")
+
+        # 이미지 생성
+        try:
+            if request.ai_model_option == 'midJouney':
+                origin_image = service_generate_image_mid(
+                    request.use_option,
+                    korean_image_prompt
+                )
+            else:
+                origin_image = service_generate_image(
+                    request.use_option,
+                    korean_image_prompt
+                )
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 생성 오류")
+
+        # 사이즈 조정 및 합성
+        images_list = []
+        try:
+            for i, img in enumerate(origin_image):
+                image_width, image_height = img.size  # 이미지 크기 가져오기
+                print(f"Image {i + 1}: Width = {image_width}, Height = {image_height}")
+
+                if request.use_option == '인스타그램 피드':
+                    if request.title == '이벤트':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1, image2 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.extend([image1, image2])
+                    elif request.title == '매장 소개':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.append(image1)
+                elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지':
+                    if request.title == '이벤트':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1, image2 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.extend([image1, image2])
+                    elif request.title == '매장 소개':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.append(image1)
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 합성 오류")
+        
+        # 문구와 합성된 이미지 반환
+        return JSONResponse(content={"copyright": copyright, "images": images_list})
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+# 문구 생성
 @router.post("/generate/content", response_model=AdsGenerateContentOutPut)
 def generate_content(request: AdsContentRequest):
     try:
@@ -431,9 +675,13 @@ async def upload_ads(
     # 3. 다른 업로드 옵션 처리
     try:
         if use_option == "인스타그램 스토리":
+            insta_name, user_id, follower_count, media_count = service_upload_insta_info_ads()
             service_upload_story_ads(content, file_path)
+            return insta_name, follower_count, media_count
         elif use_option == "인스타그램 피드":
+            user_id, follower_count, media_count = service_upload_insta_info_ads()
             service_upload_feed_ads(content, file_path)
+            return user_id, follower_count, media_count
         elif use_option == "문자메시지":
             await service_upload_mms_ads(content, file_path)
         elif use_option == '유튜브 썸네일':

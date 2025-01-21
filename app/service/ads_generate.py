@@ -202,12 +202,13 @@ def generate_image_mid(
     if link and len(link) > 0:
         url = link[0]['proxy_url']  # 이미지 URL 가져오기
 
-        # 이미지 저장 및 Base64 인코딩
+        # 이미지 다운로드
         image_response = requests.get(url)
         if image_response.status_code == 200:
             image = Image.open(BytesIO(image_response.content))
             width, height = image.size
 
+            # 자를 좌표 설정
             coordinates = [
                 (0, 0, width // 2, height // 2),       # 왼쪽 상단
                 (width // 2, 0, width, height // 2),   # 오른쪽 상단
@@ -215,16 +216,14 @@ def generate_image_mid(
                 (width // 2, height // 2, width, height)  # 오른쪽 하단
             ]
 
-            img_parts_base64 = []
+            # 잘린 이미지 객체 리스트 생성
+            img_parts = []
             for coord in coordinates:
-                cropped_image = image.crop(coord)
-                buffered = BytesIO()
-                cropped_image.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                img_parts_base64.append(f"data:image/png;base64,{img_str}")
+                cropped_image = image.crop(coord)  # 자른 이미지
+                img_parts.append(cropped_image)  # 리스트에 추가
 
-            # 결과 반환
-            return {"image": img_parts_base64}
+            # 잘린 이미지 객체 리스트 반환
+            return {"images": img_parts}
         else:
             return {"error": "Failed to download image from proxy URL"}
     else:
@@ -234,26 +233,14 @@ def generate_image_mid(
 
 # 이미지 생성
 def generate_image(
-    use_option, model_option, ai_prompt
+    use_option, korean_image_prompt
 ):
-    if use_option == '문자메시지':
-        resize = (333, 458)
-    elif use_option == '유튜브 썸네일':
-        resize = (412, 232)
-    elif use_option == '인스타그램 스토리':
-        resize = (412, 732)
-    elif use_option == '인스타그램 피드':
-        resize = (412, 514)
-    elif use_option == '배너':
-        resize = (377, 377)
-    else :
-        resize= None
-
+    
     # gpt 영역
     gpt_content = """
         당신은 전문 번역가입니다. 사용자가 제공한 내용을 정확히 영어로 번역하세요. 번역 외의 부가적인 설명이나 추가적인 내용을 작성하지 마세요.
     """    
-    content = ai_prompt
+    content = korean_image_prompt
     client = OpenAI(api_key=os.getenv("GPT_KEY"))
     completion = client.chat.completions.create(
         model="gpt-4o",
@@ -262,167 +249,83 @@ def generate_image(
             {"role": "user", "content": content},
         ],
     )
-    prompt = completion.choices[0].message.content
-    image_list = []
-    token = os.getenv("FACE_KEY")
-    if model_option == 'basic':
-        # print(prompt)
-        API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
-        headers = {"Authorization": f"Bearer {token}"}
-        data = {"inputs": prompt}
-        # API 요청 보내기
-        try:
-            # API 요청 보내기
-            response = requests.post(API_URL, headers=headers, json=data)
-            response.raise_for_status()  # 에러 발생 시 예외 처리
+    english_image_prompt = completion.choices[0].message.content
 
-            # 응답 바이너리 데이터를 PIL 이미지로 변환
-            image = Image.open(BytesIO(response.content))
+    # token = os.getenv("FACE_KEY")
+    # if model_option == 'basic':
+    #     # print(prompt)
+    #     API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
+    #     headers = {"Authorization": f"Bearer {token}"}
+    #     data = {"inputs": prompt}
+    #     # API 요청 보내기
+    #     try:
+    #         # API 요청 보내기
+    #         response = requests.post(API_URL, headers=headers, json=data)
+    #         response.raise_for_status()  # 에러 발생 시 예외 처리
 
-            if resize:
-                target_width = resize[0]  # 원하는 가로 크기
-                original_width, original_height = image.size
-                aspect_ratio = original_height / original_width  # 세로/가로 비율 계산
+    #         # 응답 바이너리 데이터를 PIL 이미지로 변환
+    #         image = Image.open(BytesIO(response.content))
 
-                # 새로운 세로 크기 계산
-                target_height = int(target_width * aspect_ratio)
+    #         if resize:
+    #             target_width = resize[0]  # 원하는 가로 크기
+    #             original_width, original_height = image.size
+    #             aspect_ratio = original_height / original_width  # 세로/가로 비율 계산
 
-                # 리사이즈 수행
-                image = image.resize((target_width, target_height), Image.LANCZOS)
+    #             # 새로운 세로 크기 계산
+    #             target_height = int(target_width * aspect_ratio)
 
-            # 이미지를 Base64로 인코딩
-            buffered = BytesIO()
-            image.save(buffered, format="PNG")  # PNG 형식으로 저장
-            img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-            image_list.append(f"data:image/png;base64,{img_str}")
-            # JSON 형식으로 Base64 이미지 반환
-            return {"image": image_list}
+    #             # 리사이즈 수행
+    #             image = image.resize((target_width, target_height), Image.LANCZOS)
 
-        except requests.exceptions.RequestException as e:
-            print(f"Failed to generate image: {e}")
-            return {"error": str(e)}
+    #         # 이미지를 Base64로 인코딩
+    #         buffered = BytesIO()
+    #         image.save(buffered, format="PNG")  # PNG 형식으로 저장
+    #         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    #         image_list.append(f"data:image/png;base64,{img_str}")
+    #         # JSON 형식으로 Base64 이미지 반환
+    #         return {"image": image_list}
+
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"Failed to generate image: {e}")
+    #         return {"error": str(e)}
         
-    elif model_option == 'poster':
-        API_URL = "https://api-inference.huggingface.co/models/alex1105/movie-posters-v2"
-        headers = {"Authorization": f"Bearer {token}"}
-        data = {"inputs": prompt}
-        # API 요청 보내기
-        try:
-            # API 요청 보내기
-            response = requests.post(API_URL, headers=headers, json=data)
-            response.raise_for_status()  # 에러 발생 시 예외 처리
+    try:
+        # Resize와 Final Size 매핑
+        resize_mapping = {
+            '카카오톡': (1024, 1792),
+            '유튜브 썸네일': (1792, 1024),
+            '인스타그램 스토리': (1024, 1792),
+            '인스타그램 피드': (1024, 1024),
+            '네이버 블로그': (1792, 1024)
+        }
+        resize = resize_mapping.get(use_option, None)
 
-            # 응답 바이너리 데이터를 PIL 이미지로 변환
-            image = Image.open(BytesIO(response.content))
+        if not resize:
+            raise ValueError("Invalid `use_option` provided or no resize option available.")
 
-            # 이미지 리사이즈
-            if resize:
-                target_width = resize[0]  # 원하는 가로 크기
-                original_width, original_height = image.size
-                aspect_ratio = original_height / original_width  # 세로/가로 비율 계산
-
-                # 새로운 세로 크기 계산
-                target_height = int(target_width * aspect_ratio)
-
-                # 리사이즈 수행
-                image = image.resize((target_width, target_height), Image.LANCZOS)
-
-            # 이미지를 Base64로 인코딩
-            buffered = BytesIO()
-            image.save(buffered, format="PNG")  # PNG 형식으로 저장
-            img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-            # JSON 형식으로 Base64 이미지 반환
-            return {"image": f"data:image/png;base64,{img_str}"}
-
-        except requests.exceptions.RequestException as e:
-            print(f"Failed to generate image: {e}")
-            return {"error": str(e)}
+        resize_str = f"{resize[0]}x{resize[1]}"
         
-    elif model_option == 'food':
-        API_URL = "https://api-inference.huggingface.co/models/its-magick/merlin-food"
-        headers = {"Authorization": f"Bearer {token}"}
-        data = {"inputs": prompt}
-        # API 요청 보내기
-        # 응답 처리
-        try:
-            # API 요청 보내기
-            response = requests.post(API_URL, headers=headers, json=data)
-            response.raise_for_status()  # 에러 발생 시 예외 처리
+        # Prompt 전달 및 이미지 생성
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=english_image_prompt,
+            size=resize_str,
+            quality="hd", 
+            n=1
+        )
+        image_url = response.data[0].url
+        print(image_url)
+        # 이미지 다운로드
+        image_response = requests.get(image_url)
+        image_response.raise_for_status()
 
-            # 응답 바이너리 데이터를 PIL 이미지로 변환
-            image = Image.open(BytesIO(response.content))
+        # 이미지 열기
+        img = Image.open(io.BytesIO(image_response.content))
 
-            # 이미지 리사이즈
-            if resize:
-                target_width = resize[0]  # 원하는 가로 크기
-                original_width, original_height = image.size
-                aspect_ratio = original_height / original_width  # 세로/가로 비율 계산
-
-                # 새로운 세로 크기 계산
-                target_height = int(target_width * aspect_ratio)
-
-                # 리사이즈 수행
-                image = image.resize((target_width, target_height), Image.LANCZOS)
-
-            # 이미지를 Base64로 인코딩
-            buffered = BytesIO()
-            image.save(buffered, format="PNG")  # PNG 형식으로 저장
-            img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-            # JSON 형식으로 Base64 이미지 반환
-            return {"image": f"data:image/png;base64,{img_str}"}
-
-        except requests.exceptions.RequestException as e:
-            print(f"Failed to generate image: {e}")
-            return {"error": str(e)}
+        return [img]
         
-    elif model_option == 'dalle':
-        try:
-            # Resize와 Final Size 매핑
-            resize_mapping = {
-                '문자메시지': (1024, 1792),
-                '유튜브 썸네일': (1792, 1024),
-                '인스타그램 스토리': (1024, 1792),
-                '인스타그램 피드': (1024, 1024),
-                '배너': (1792, 1024),
-                '네이버 블로그': (1792, 1024)
-            }
-            resize = resize_mapping.get(use_option, None)
-
-            if not resize:
-                raise ValueError("Invalid `use_option` provided or no resize option available.")
-
-            resize_str = f"{resize[0]}x{resize[1]}"
-            
-            # Prompt 전달 및 이미지 생성
-            response = client.images.generate(
-                model="dall-e-3",
-                prompt=prompt,
-                size=resize_str,
-                quality="hd", 
-                n=1
-            )
-            image_url = response.data[0].url
-
-            # 이미지 다운로드
-            image_response = requests.get(image_url)
-            image_response.raise_for_status()
-
-            # 이미지 열기
-            img = Image.open(io.BytesIO(image_response.content))
-
-             # Base64 인코딩
-            buffer = io.BytesIO()
-            img = Image.open(io.BytesIO(image_response.content))
-            img.save(buffer, format="PNG")
-            img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            image_list.append(f"data:image/png;base64,{img_str}")
-
-            return {"image": image_list}
-        
-        except Exception as e:
-            return {"error": f"이미지 생성 중 오류 발생: {e}"}
+    except Exception as e:
+        return {"error": f"이미지 생성 중 오류 발생: {e}"}
 
 
 # 영상 생성

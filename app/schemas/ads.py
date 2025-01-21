@@ -106,6 +106,34 @@ class AdsContentRequest(BaseModel):
     detail_content: str
 
 
+
+
+# 광고 채널 추천용
+class AdsSuggestChannelRequest(BaseModel):
+    male_base:str
+    female_base:str
+    store_name: str
+    road_name: str
+    tag: str
+    title: str
+
+
+# 테스트 생성용
+class AdsTestRequest(BaseModel):
+    gpt_role: str
+    weather: str
+    temp: float
+    male_base: str
+    female_base: str
+    store_name: str
+    road_name: str
+    tag: str
+    use_option: str
+    title: str
+    ai_model_option: str
+    detail_content: Optional[str]
+
+
 # 테스트 문구 생성
 class AdsContentNewRequest(BaseModel):
     prompt : str

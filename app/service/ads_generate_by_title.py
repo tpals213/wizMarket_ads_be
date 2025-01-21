@@ -120,105 +120,94 @@ def resize_and_crop_image(image_width, image_height, image, want_width=1024, wan
 # 주제 + 문구 + 이미지 합치기
 def combine_ads_store_intro(store_name, road_name, content, image_width, image_height, image, alignment="center"):
     root_path = os.getenv("ROOT_PATH", ".")
-    sp_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "BG_snow.png") 
-    # RGBA 모드로 변환
-    if image.mode != "RGBA":
-        image = image.convert("RGBA")
-
+    
     image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024)
   
-    # 바탕 생성 및 합성
-    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "introduction_back.png") 
-    rectangle = Image.open(rectangle_path).convert("RGBA")
-    rectangle = rectangle.resize(image.size)
-    image = Image.alpha_composite(image, rectangle)
-
-    # sp_image 불러오기 및 리사이즈
-    sp_image = Image.open(sp_image_path).convert("RGBA")
-    original_width, original_height = sp_image.size
-
-    # sp_image의 가로 길이를 기존 이미지의 가로 길이에 맞추고, 세로는 비율에 맞게 조정
-    new_width = image_width
-    new_height = int((new_width / original_width) * original_height)
-    sp_image = sp_image.resize((new_width, new_height))
-    # 투명도 조정
-    alpha = sp_image.split()[3]  # RGBA의 알파 채널 추출
-    alpha = ImageEnhance.Brightness(alpha).enhance(0.5)  # 투명도를 0.6으로 조정
-    sp_image.putalpha(alpha)  # 수정된 알파 채널을 다시 이미지에 적용
-
-    # sp_image에 투명한 배경 추가하여 기존 이미지와 크기 맞춤
-    padded_sp_image = Image.new("RGBA", (image_width, image_height), (0, 0, 0, 0))  # 투명 배경 생성
-    # sp_image 배치
-    offset_x = 0  # 기본 가로 정렬: 좌측
-    if alignment == "center":
-        offset_x = (image_width - new_width) // 2
-    elif alignment == "right":
-        offset_x = image_width - new_width
-
-    offset_y = (image_height - new_height) // 2  # 세로 중앙 배치
-    padded_sp_image.paste(sp_image, (offset_x, offset_y))  # sp_image를 배경 위에 붙임
-
-    # sp_image와 기존 이미지 합성
-    image = Image.alpha_composite(image.convert("RGBA"), padded_sp_image)
-
     # 텍스트 설정
-    top_path = os.path.join(root_path, "app", "static", "font", "GasoekOne-Regular.ttf") 
+    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     bottom_path = os.path.join(root_path, "app", "static", "font", "BMHANNA_11yrs_ttf.ttf") 
     store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
-    top_font_size = 150
+    base_copy_right_path = os.path.join(root_path, "app", "static", "font", "DoHyeon-Regular.otf")
+
+    top_font_size = 64
     bottom_font_size = (top_font_size * 5) / 8
-    store_name_font_size = 64
-    road_name_font_size = 48
+    store_name_font_size = 55
+    road_name_font_size = 36
+    base_copy_right_font_size = 64
 
     # 폰트 설정
     top_font = ImageFont.truetype(top_path, int(top_font_size))
     bottom_font = ImageFont.truetype(bottom_path, int(bottom_font_size))
     store_name_font = ImageFont.truetype(store_name_path, int(store_name_font_size))
     road_name_font = ImageFont.truetype(road_name_path, int(road_name_font_size))
+    base_copy_right_font = ImageFont.truetype(base_copy_right_path, int(base_copy_right_font_size))
+    
 
     # 텍스트 렌더링 (합성 작업 후)
     draw = ImageDraw.Draw(image)
+
+    # 기본 문구 붙여 넣기
+    base_copyright = "매장소개"
+    base_copyright_width = base_copy_right_font.getbbox(base_copyright)[2]
+    base_copyright_height = base_copy_right_font.getbbox(base_copyright)[3]
+    base_copyright_x = 45
+    base_copyright_y = 643
+    padding = 10 
+
+    background_x0 = base_copyright_x - padding
+    background_y0 = base_copyright_y - padding
+    background_x1 = base_copyright_x + base_copyright_width + padding
+    background_y1 = base_copyright_y + base_copyright_height + padding
+
+    draw.rectangle(
+        [background_x0, background_y0, background_x1, background_y1],
+        fill="#09C5FE"  # 배경색
+    )
+
+    draw.text(
+        (base_copyright_x, base_copyright_y),
+        base_copyright,
+        font=base_copy_right_font,
+        fill=(255, 255, 255)  # 텍스트 색상
+    )
 
     content = content.strip('"')
     lines = content
     # print(content)
     if len(lines) > 0:
         top_line = lines
-        lines_list = split_top_line(top_line, max_length=9)  # 반환값은 리스트
+        lines_list = split_top_line(top_line, max_length=14)  # 반환값은 리스트
         
         # 첫 번째 줄 렌더링 Y 좌표 설정
-        top_text_y = 270
-        
-        # 반복적으로 각 줄 렌더링
+        top_text_y = 733
+
         for i, line in enumerate(lines_list):
             if line:  # 줄이 존재할 경우만 처리
                 # 텍스트 너비 계산
                 top_text_width = top_font.getbbox(line)[2]
                 
                 # 좌우 여백을 고려한 중앙 정렬 X 좌표 계산
-                top_text_x = (image_width - 44 - 44 - top_text_width) // 2 + 44
+                top_text_x = 45
                 
                 # 현재 줄 렌더링
-                draw.text((top_text_x, top_text_y), line, font=top_font, fill=(163, 163, 163, 255))  # RGBA 적용
+                draw.text((top_text_x, top_text_y), line, font=top_font, fill=(255, 255, 255))  # RGBA 적용
                 
                 # Y 좌표를 다음 줄로 이동
                 top_text_y += top_font.getbbox("A")[3] + 5
-
-
     
     # store_name 추가
     store_name_width = store_name_font.getbbox(store_name)[2]
     store_name_height = store_name_font.getbbox(store_name)[3]
     store_name_x = (image_width - store_name_width) // 2
-    store_name_y = image_height - store_name_height - 106
-    draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill="#0BE855")
+    store_name_y = 77
+    draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill=(255, 255, 255))
 
     # road_name 추가
     road_name_width = road_name_font.getbbox(road_name)[2]
     road_name_height = road_name_font.getbbox(road_name)[3]
     road_name_x = (image_width - road_name_width) // 2
-    road_name_y = image_height - road_name_height - 23
+    road_name_y = 923
     draw.text((road_name_x, road_name_y), road_name, font=road_name_font, fill=(255, 255, 255))
 
 
