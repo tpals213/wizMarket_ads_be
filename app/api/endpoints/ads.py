@@ -6,10 +6,10 @@ from app.schemas.ads import (
     AdsGenerateContentOutPut, AdsContentRequest,
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
-    AdsTestRequest, AdsSuggestChannelRequest
+    AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront
 )
 from fastapi import Request, Body
-from PIL import Image
+from PIL import Image, ImageOps
 import logging
 from typing import List
 from google_auth_oauthlib.flow import Flow
@@ -122,6 +122,44 @@ def select_ads_init_info(request: AdsSuggestChannelRequest):
     except Exception as e:
         print(f"Error occurred: {e}, 문구 생성 오류")
 
+# 프론트에서 이미지 처리 테스트
+# @router.post("/generate/exist/image/test")
+# def generate_image_with_test(request: AdsImageTestFront):
+#     try:
+#         # 문구 생성
+#         try:
+#             today = datetime.now()
+#             formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+#             copyright_prompt = f'''
+#                 매장명 : {request.store_name}
+#                 주소 : {request.road_name}
+#                 업종 : {request.tag}
+#                 날짜 : {formattedToday}
+#                 날씨 : {request.weather}, {request.temp}℃
+#                 매출이 가장 높은 남성 연령대 : {request.male_base}
+#                 매출이 가장 높은 여성 연령대 : {request.female_base}
+#             '''
+#             copyright = service_generate_content(
+#                 copyright_prompt,
+#                 request.gpt_role,
+#                 request.detail_content
+#             )
+#         except Exception as e:
+#             print(f"Error occurred: {e}, 문구 생성 오류")
+
+#         # 문구 반환
+#         return JSONResponse(content={"copyright": copyright})
+
+#     except HTTPException as http_ex:
+#         logger.error(f"HTTP error occurred: {http_ex.detail}")
+#         raise http_ex
+#     except Exception as e:
+#         error_msg = f"Unexpected error while processing request: {str(e)}"
+#         logger.error(error_msg)
+#         raise HTTPException(status_code=500, detail=error_msg)
+
+
 
 # 업로드 된 이미지 처리
 @router.post("/generate/exist/image")
@@ -166,8 +204,8 @@ def generate_image_with_text(
         # 이미지와 문구 합성
         try:
             pil_image = Image.open(image.file)
+            pil_image = ImageOps.exif_transpose(pil_image)
             image_width, image_height = pil_image.size
-
             if use_option == '인스타그램 피드':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
@@ -180,12 +218,12 @@ def generate_image_with_text(
             elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
-                    image1, image2 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
-                    images_list.extend([image1, image2])
+                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.extend([image1, image2, image3])
                 elif title == '매장 소개':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
-                    image1 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
-                    images_list.append(image1)
+                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.extend([image1, image2, image3])
 
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 합성 오류")
@@ -200,7 +238,7 @@ def generate_image_with_text(
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
-# 테스트용
+# AI 생성용 이미지 처리
 @router.post("/upload/content")
 def generate_upload(request: AdsTestRequest):
     try:
@@ -319,12 +357,14 @@ def generate_upload(request: AdsTestRequest):
                 elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
-                        images_list.extend([image1, image2])
+                        image1, image2, image3 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.extend([image1, image2, image3])
                     elif request.title == '매장 소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
-                        images_list.append(image1)
+                        image1, image2, image3 = service_combine_ads_4_7(
+                            request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
+                        )
+                        images_list.extend([image1, image2, image3])
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 합성 오류")
         

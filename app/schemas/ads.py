@@ -118,6 +118,19 @@ class AdsSuggestChannelRequest(BaseModel):
     title: str
 
 
+# 프론트에서 이미지 처리 테스트용
+class AdsImageTestFront(BaseModel):
+    male_base:str
+    female_base:str
+    store_name: str
+    road_name: str
+    tag: str
+    weather: str
+    temp: float
+    gpt_role: str
+    detail_content: Optional[str]
+
+
 # 테스트 생성용
 class AdsTestRequest(BaseModel):
     gpt_role: str
