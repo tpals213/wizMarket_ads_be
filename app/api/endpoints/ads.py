@@ -13,7 +13,6 @@ from PIL import Image
 import logging
 from typing import List
 from google_auth_oauthlib.flow import Flow
-
 from app.service.ads import (
     select_ads_init_info as service_select_ads_init_info,
     insert_ads as service_insert_ads,
@@ -43,6 +42,14 @@ from app.service.ads_generate_by_title import (
     combine_ads_7_4 as service_combine_ads_7_4,
 )
 # from app.service.ads_upload_naver import upload_naver_ads as service_upload_naver_ads
+from app.service.ads_generate_test import (
+    generate_image_stable as service_generate_image_stable, 
+    generate_image_dalle as service_generate_image_dalle,
+    generate_image_mid as service_generate_image_mid
+)
+
+
+
 import traceback
 from fastapi.responses import JSONResponse
 from pathlib import Path
@@ -133,7 +140,6 @@ def generate_image_with_text(
     image: UploadFile = File(...)
 ):
     images_list = []
-    print(image)
     try:
         # 문구 생성
         try:
@@ -154,7 +160,6 @@ def generate_image_with_text(
                 gpt_role,
                 detail_content
             )
-            
         except Exception as e:
             print(f"Error occurred: {e}, 문구 생성 오류")
 
@@ -172,7 +177,7 @@ def generate_image_with_text(
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1 = service_combine_ads_1_1(store_name, road_name, copyright, title, image_width, image_height, pil_image)
                     images_list.append(image1)
-            elif use_option == '인스타그램 스토리' or use_option == '문자메시지':
+            elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1, image2 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
@@ -238,7 +243,15 @@ def generate_upload(request: AdsTestRequest):
                 - 매장의 세부업종에 따른 이미지 컨셉을 도출하여 스토리에 접목시킬 것
             """
             korean_story_gpt_role = f'''
-                우수한 마케터의 역할과 역량을 학습한 이후 아래와 같은 내용의 마케팅 스토리를 300자 내외로 작성해주세요.
+                당신은 광고를 제작하는 크리에이티브 디자이너 입니다. 
+                멋진 온라인 광고 콘텐츠를 제작하기 위해 당신이 고려해야할 것은 
+                클라이언트 사업의 업종, 매장위치, 핵심고객, 오늘의 날씨, 홍보주제, 온라인 홍보채널 등을 고려하여 
+                멋지고 창의적이고 때로는 엉뚱한 상상력을 발휘할 수 있는 스토리를 한 장의 이미지로 나타내려고 합니다. 
+                
+                핵심고객의 나이가 20대, 30대라면 동물을 테마로 한 엉뚱한 상상력을 발휘해도 좋고 40대라면 일상에서 일어나는 일들을 테마로 하고, 
+                50대면 가족과의 화합을 테마로하고, 60대 이상은 과거의 추억을 떠올릴 수 있는 테마로 잡으면 좋겠습니다. 
+                주 고객층에서 남성은 재치있는 유머를 보여주고 여성은 아기자기하고 귀여운 느낌으로 작성해주세요. 
+                아래의 클라이언트가 의뢰하는 내용으로 스토리를 만들어주세요.
             '''
 
             detail_content = "값 없음"
@@ -268,7 +281,7 @@ def generate_upload(request: AdsTestRequest):
                 korean_image_gpt_role,
                 detail_content
             )
-            print(korean_image_prompt)
+            # print(korean_image_prompt)
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 생성 오류")
 
@@ -303,7 +316,7 @@ def generate_upload(request: AdsTestRequest):
                         # 서비스 레이어 호출 (Base64 이미지 반환)
                         image1 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
                         images_list.append(image1)
-                elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지':
+                elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
                         image1, image2 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
@@ -414,28 +427,6 @@ def combine_ads(
             return JSONResponse(content={"images": [image1]})
 
 
-
-# # ADS 텍스트, 이미지 합성
-# @router.post("/combine/image/text")
-# def combine_ads(
-#     store_name: str = Form(...),
-#     road_name: str = Form(...),
-#     content: str = Form(...),
-#     image_width: int = Form(...),
-#     image_height: int = Form(...),
-#     image: UploadFile = File(...)
-# ):
-#     try:
-#         pil_image = Image.open(image.file)
-#     except Exception as e:
-#         return {"error": f"Failed to open image: {str(e)}"}
-#     # 서비스 레이어 호출 (Base64 이미지 반환)
-#     base64_image = service_combine_ads_ver1(store_name, road_name, content, image_width, image_height, pil_image)
-
-#     # JSON 응답으로 Base64 이미지 반환
-#     return JSONResponse(content={"image": base64_image})
-
-
 # ADS DB에 저장
 @router.post("/insert")
 def insert_ads(
@@ -530,7 +521,6 @@ def delete_status(request: AdsDeleteRequest):
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
-
 
 # ADS DB에 수정
 @router.post("/update")
@@ -832,8 +822,8 @@ def generate_old_content(request: AdsContentNewRequest):
         raise HTTPException(status_code=500, detail=error_msg)
     
 
-# 클로드 모델 테스트
-@router.post("/generate/test/claude/content", response_model=AdsGenerateContentOutPut)
+# 디퓨전 모델 테스트
+@router.post("/generate/image/claude/content", response_model=AdsGenerateContentOutPut)
 def generate_claude_content(request: AdsContentNewRequest):
     try:
         # print(request.prompt)
@@ -848,4 +838,60 @@ def generate_claude_content(request: AdsContentNewRequest):
     except Exception as e:
         error_msg = f"Unexpected error while processing request: {str(e)}"
         logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+@router.post("/generate/image/stable")
+def generate_image(request: AdsContentNewRequest):
+    try:
+        # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
+        data = service_generate_image_stable(
+            request.prompt,
+        )
+        return data
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        print(f"HTTPException 발생: {http_ex.detail}")  # 추가 디버깅 출력
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        print(f"Exception 발생: {error_msg}")  # 추가 디버깅 출력
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+@router.post("/generate/image/dalle")
+def generate_image(request: AdsContentNewRequest):
+    try:
+        # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
+        data = service_generate_image_dalle(
+            request.prompt,
+        )
+        return data
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        print(f"HTTPException 발생: {http_ex.detail}")  # 추가 디버깅 출력
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        print(f"Exception 발생: {error_msg}")  # 추가 디버깅 출력
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+@router.post("/generate/image/mid")
+def generate_image(request: AdsContentNewRequest):
+    try:
+        data = service_generate_image_mid(
+            request.prompt,
+        )
+        return data
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        print(f"HTTPException 발생: {http_ex.detail}")  # 추가 디버깅 출력
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        print(f"Exception 발생: {error_msg}")  # 추가 디버깅 출력
         raise HTTPException(status_code=500, detail=error_msg)

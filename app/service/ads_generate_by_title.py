@@ -121,8 +121,35 @@ def resize_and_crop_image(image_width, image_height, image, want_width=1024, wan
 def combine_ads_store_intro(store_name, road_name, content, image_width, image_height, image, alignment="center"):
     root_path = os.getenv("ROOT_PATH", ".")
     
+    # RGBA 모드로 변환
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+
+    # 이미지 크기 확인 및 리사이즈
     image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024)
-  
+
+    # 바탕 생성 및 합성
+    rectangle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_1_1_top.png")
+    rectangle = Image.open(rectangle_path).convert("RGBA")
+    
+    # Rectangle 이미지 크기 확인
+    rectangle_width, rectangle_height = rectangle.size
+
+    # 투명 배경 생성: 이미지2 하단에 추가 (전체 높이 1792로 맞춤)
+    transparent_height = image_height - rectangle_height
+    transparent_background = Image.new("RGBA", (rectangle_width, transparent_height), (0, 0, 0, 0))  # 투명 배경 생성
+
+    # Rectangle과 투명 배경 합성
+    combined_rectangle = Image.new("RGBA", (rectangle_width, image_height), (0, 0, 0, 0))  # 전체 크기: 1024x1792
+    combined_rectangle.paste(rectangle, (0, 0))  # Rectangle 상단 배치
+    combined_rectangle.paste(transparent_background, (0, rectangle_height))  # 투명 배경 하단 배치
+
+    # 이미지1(image)와 Rectangle 합성
+    image = Image.alpha_composite(image, combined_rectangle)
+
+
+
+
     # 텍스트 설정
     top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     bottom_path = os.path.join(root_path, "app", "static", "font", "BMHANNA_11yrs_ttf.ttf") 
@@ -148,7 +175,7 @@ def combine_ads_store_intro(store_name, road_name, content, image_width, image_h
     draw = ImageDraw.Draw(image)
 
     # 기본 문구 붙여 넣기
-    base_copyright = "매장소개"
+    base_copyright = "매장추천"
     base_copyright_width = base_copy_right_font.getbbox(base_copyright)[2]
     base_copyright_height = base_copy_right_font.getbbox(base_copyright)[3]
     base_copyright_x = 45
@@ -269,7 +296,7 @@ def combine_ads_event(store_name, road_name, content, image_width, image_height,
     # 텍스트 설정
     top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     bottom_path = os.path.join(root_path, "app", "static", "font", "JalnanGothicTTF.ttf") 
-    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     top_font_size = 55
     bottom_font_size = 96
@@ -349,7 +376,7 @@ def combine_ads_event(store_name, road_name, content, image_width, image_height,
     for line in bottom_lines:
         line = line.strip()
         # 하단 줄을 분리하여 20자 이상일 경우 나눔
-        split_lines = split_top_line(line, max_length=12)
+        split_lines = split_top_line(line, max_length=13)
 
         for i, sub_line in enumerate(split_lines):
             sub_line = sub_line.strip()
@@ -375,7 +402,7 @@ def combine_ads_event(store_name, road_name, content, image_width, image_height,
     store_name_y = image_height - store_name_height - 99
     draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill="white")
 
-    fill_color = (255, 255, 255, int(255 * 0.8))  # RGBA
+    fill_color = (255, 255, 255, 58)  # RGBA
 
     # road_name 추가
     road_name_width = road_name_font.getbbox(road_name)[2]
@@ -440,8 +467,8 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
 
     # 텍스트 설정
     top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
-    bottom_path = os.path.join(root_path, "app", "static", "font", "SeoulNamsanB.ttf") 
-    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "SeoulNamsanEB.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     top_font_size = 80
     bottom_font_size = 90
@@ -473,7 +500,7 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
         lines_list = split_top_line(top_line, max_length=20)  # 반환값은 리스트
 
         # 첫 번째 줄 렌더링 Y 좌표 설정
-        top_text_y = 93
+        top_text_y = 263
 
         # 반복적으로 각 줄 렌더링
         for i, line in enumerate(lines_list):
@@ -485,19 +512,19 @@ def combine_ads_event_ver2(store_name, road_name, content, image_width, image_he
                 top_text_x = (image_width - 44 - 44 - top_text_width) // 2 + 44
                 # 텍스트 렌더링
                 draw.text((top_text_x, top_text_y), line, font=top_font, fill=(255, 255, 255, 10))
-                print(line)
+
                 # Y 좌표를 다음 줄로 이동
                 top_text_y += top_font.getbbox("A")[3] + 5
 
     # 하단 텍스트 추가
     bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
     line_height = bottom_font.getbbox("A")[3] + 4
-    text_y = 379
+    text_y = 412
 
     for line in bottom_lines:
         line = line.strip()
         # 하단 줄을 분리하여 20자 이상일 경우 나눔
-        split_lines = split_top_line(line, max_length=12)
+        split_lines = split_top_line(line, max_length=13)
 
         for i, sub_line in enumerate(split_lines):
             sub_line = sub_line.strip()
@@ -643,7 +670,7 @@ def combine_ads_intro_4_7(store_name, road_name, content, image_width, image_hei
             sub_line = sub_line.strip()
             # 텍스트 너비 계산
             bottom_text_width = bottom_font.getbbox(line)[2]
-            print(bottom_text_width)
+            # print(bottom_text_width)
             # 좌우 여백을 고려한 중앙 정렬 X 좌표 계산
             bottom_text_x = (image_width - 186 - 186 - bottom_text_width) // 2 + 186
             print(bottom_text_x)
@@ -707,7 +734,7 @@ def combine_ads_event_4_7(store_name, road_name, content, image_width, image_hei
     image = Image.alpha_composite(image, combined_rectangle)
 
     # 텍스트 설정
-    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
@@ -829,13 +856,31 @@ def combine_ads_event_4_7_ver2(store_name, road_name, content, image_width, imag
     # 이미지1(image)와 Rectangle 합성
     image = Image.alpha_composite(image, combined_rectangle)
 
+    # # 원 생성 및 합성
+    # circle_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_4_7_circle.png")
+    # circle = Image.open(circle_path).convert("RGBA")
+    # # Rectangle 이미지 크기 확인
+    # circle_width, circle_height = circle.size
+
+    # # 투명 배경 생성: 이미지2 하단에 추가 (전체 높이 1792로 맞춤)
+    # transparent_height = image_height - circle_height
+    # transparent_background = Image.new("RGBA", (circle_width, transparent_height), (0, 0, 0, 0))  # 투명 배경 생성
+
+    # # Rectangle과 투명 배경 합성
+    # combined_circle = Image.new("RGBA", (circle_width, image_height), (0, 0, 0, 0))  # 전체 크기: 1024x1792
+    # combined_circle.paste(rectangle, (0, 0))  # Rectangle 상단 배치
+    # combined_circle.paste(transparent_background, (0, circle_height))  # 투명 배경 하단 배치
+
+    # # 이미지1(image)와 Rectangle 합성
+    # image = Image.alpha_composite(image, combined_circle)
+    # image.show()
     # 텍스트 설정
     top_path = os.path.join(root_path, "app", "static", "font", "BlackAndWhitePicture-Regular.ttf") 
-    bottom_path = os.path.join(root_path, "app", "static", "font", "BlackAndWhitePicture-Regular.ttf") 
-    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
-    road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
+    road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     top_font_size = 128
-    bottom_font_size = 96
+    bottom_font_size = 64
     store_name_font_size = 48
     road_name_font_size = 48
 
@@ -861,16 +906,17 @@ def combine_ads_event_4_7_ver2(store_name, road_name, content, image_width, imag
 
     if len(lines) > 0:
         top_line = lines[0].strip()
-        lines_list = split_top_line(top_line, max_length=8)  # 반환값은 리스트
+        lines_list = split_top_line(top_line, max_length=13)  # 반환값은 리스트
 
         # 첫 번째 줄 렌더링 Y 좌표 설정
-        top_text_y = 147
+        top_text_y = 223
 
         # 반복적으로 각 줄 렌더링
         for i, line in enumerate(lines_list):
             if line:  # 줄이 존재할 경우만 처리
                 # 중앙 정렬 X 좌표 계산
-                top_text_x = 76
+                top_text_width = top_font.getbbox(line)[2]
+                top_text_x = (image_width - 80 - 80 - top_text_width) // 2 + 80
                 # 텍스트 렌더링
                 draw.text((top_text_x, top_text_y), line, font=top_font, fill=(255, 255, 255, 10))
                 # print(line)
@@ -880,20 +926,20 @@ def combine_ads_event_4_7_ver2(store_name, road_name, content, image_width, imag
     # 하단 텍스트 추가
     bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
     line_height = bottom_font.getbbox("A")[3] + 4
-    text_y = 484
+    text_y = 376
 
     for line in bottom_lines:
         line = line.strip()
         # 하단 줄을 분리하여 20자 이상일 경우 나눔
-        split_lines = split_top_line(line, max_length=12)
+        split_lines = split_top_line(line, max_length=18)
 
         for i, sub_line in enumerate(split_lines):
             sub_line = sub_line.strip()
             text_width = bottom_font.getbbox(sub_line)[2]
 
-            text_x = 84
+            text_x = (image_width - 97 - 97 - text_width) // 2 + 97
 
-            draw.text((text_x, text_y), sub_line, font=bottom_font, fill="#FFCB18")
+            draw.text((text_x, text_y), sub_line, font=bottom_font, fill="white")
             text_y += line_height  # 다음 줄로 이동
 
     # store_name 추가

@@ -314,7 +314,7 @@ def generate_image(
             n=1
         )
         image_url = response.data[0].url
-        print(image_url)
+        # print(image_url)
         # 이미지 다운로드
         image_response = requests.get(image_url)
         image_response.raise_for_status()
