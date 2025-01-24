@@ -330,7 +330,6 @@ def generate_image(
 
 # 영상 생성
 def generate_video(file_path):
-
     ROOT_PATH = os.getenv("ROOT_PATH")
     AUDIO_PATH = os.getenv("AUDIO_PATH")
     full_audio_path = os.path.join(ROOT_PATH, AUDIO_PATH.strip("/"), "audio.mp3")
@@ -405,3 +404,50 @@ def generate_video(file_path):
         # Log failure details
         print(f"Failure Reason: {task.failure}")
         print(f"Failure Code: {task.failure_code}")
+
+
+# 영상 문구 합치기
+def generate_add_text_to_video(video_path, text):
+    root_path = os.getenv("ROOT_PATH", ".")
+    # Load the video clip
+
+    video_path = video_path.get('result_url')
+    video_path = video_path.lstrip("/").replace("\\", "/")
+    video_path = os.path.join(root_path, "app", video_path)
+
+    clip = VideoFileClip(video_path)
+    
+    # 폰트 경로 처리
+    font = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
+
+
+    # Create a text clip
+    txt_clip = TextClip(
+        font=font,
+        text=text,
+        font_size=56,
+        color="#fff",
+        text_align="center",
+    )
+
+    # Set the duration of the text clip to match the video clip
+    txt_clip = txt_clip.with_duration(clip.duration)
+
+    # Center the text
+    txt_clip = txt_clip.with_position('center')
+
+    # Composite the text clip onto the video clip
+    result = CompositeVideoClip([clip, txt_clip])
+
+    exist_video_path = os.getenv("VIDEO_PATH", "/app/static/video")
+    save_path = os.path.join(root_path, exist_video_path.lstrip("/"), "video_with_text.mp4")
+
+    # Export the result to a file
+    result.write_videofile(save_path)
+
+    # 업로드 성공 후 파일 삭제
+    if os.path.exists("output.mp4"):
+        os.remove("output.mp4")
+        os.remove(video_path)
+    
+    return {"result_url": save_path}

@@ -199,3 +199,9 @@ class AdsSpecificInitStoreName(BaseModel):
 # 유튜브 인증
 class AuthCallbackRequest(BaseModel):
     code: str
+
+
+# 인스타 영상 업로드
+class AdsUploadVideoInsta(BaseModel):
+    content: str
+    video_path : str

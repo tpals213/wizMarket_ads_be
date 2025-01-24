@@ -6,7 +6,7 @@ from app.schemas.ads import (
     AdsGenerateContentOutPut, AdsContentRequest,
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
-    AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront
+    AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta
 )
 from fastapi import Request, Body
 from PIL import Image, ImageOps
@@ -26,7 +26,8 @@ from app.service.ads_generate import (
     generate_new_content as service_generate_new_content,
     generate_old_content as service_generate_old_content,
     generate_claude_content as service_generate_claude_content,
-    generate_image_mid as service_generate_image_mid
+    generate_image_mid as service_generate_image_mid,
+    generate_add_text_to_video as service_generate_add_text_to_video,
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
@@ -34,7 +35,10 @@ from app.service.ads_upload import (
     upload_mms_ads as service_upload_mms_ads,
     upload_youtube_ads as service_upload_youtube_ads,
     upload_get_auth_url as service_upload_get_auth_url,
-    upload_insta_info_ads as service_upload_insta_info_ads
+    upload_insta_info_ads as service_upload_insta_info_ads,
+    upload_story_video_ads as service_upload_story_video_ads,
+    upload_feed_video_ads as service_upload_feed_video_ads,
+    upload_reels_video_ads as service_upload_reels_video_ads,
 )
 from app.service.ads_generate_by_title import (
     combine_ads_1_1 as service_combine_ads_1_1,
@@ -68,6 +72,7 @@ logger = logging.getLogger(__name__)
 
 ROOT_PATH = Path(os.getenv("ROOT_PATH"))
 IMAGE_DIR = Path(os.getenv("IMAGE_DIR"))
+VIDEO_DIR = Path(os.getenv("VIDEO_PATH"))
 FULL_PATH = ROOT_PATH / IMAGE_DIR.relative_to("/") / "ads"
 FULL_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -218,12 +223,16 @@ def generate_image_with_text(
             elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
-                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
                     images_list.extend([image1, image2, image3])
                 elif title == '매장 소개':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
                     images_list.extend([image1, image2, image3])
+                elif title == '상품소개':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.append(image1)
 
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 합성 오류")
@@ -357,7 +366,9 @@ def generate_upload(request: AdsTestRequest):
                 elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2, image3 = service_combine_ads_4_7(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        image1, image2, image3 = service_combine_ads_4_7(
+                            request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
+                        )
                         images_list.extend([image1, image2, image3])
                     elif request.title == '매장 소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
@@ -365,6 +376,12 @@ def generate_upload(request: AdsTestRequest):
                             request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
                         )
                         images_list.extend([image1, image2, image3])
+                    elif request.title == '상품소개':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1 = service_combine_ads_4_7(
+                            request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
+                        )
+                        images_list.append(image1)
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 합성 오류")
         
@@ -658,16 +675,20 @@ async def upload_ads(
     content: str = Form(...), 
     store_name: str = Form(...), 
     tag: str = Form(...), 
-    upload_image: UploadFile = File(None),
+    upload_images: List[UploadFile] = File(...),
 ):
     """
     광고 업로드 엔드포인트
     """
     final_image_url = None
-    # print(access_token)
+    print(upload_images)
     # 1. 파이널 이미지 파일 처리
-    if upload_image:
+    if upload_images and len(upload_images) > 0:  # 배열이 비어있지 않은지 확인
         try:
+            # 배열에서 첫 번째 이미지 가져오기
+            upload_image = upload_images[0]
+
+            # 파일명 및 확장자 생성
             filename, ext = os.path.splitext(upload_image.filename)
             today = datetime.now().strftime("%Y%m%d")
             unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
@@ -679,6 +700,7 @@ async def upload_ads(
 
             # 파이널 이미지 URL 생성
             final_image_url = f"/static/images/ads/{unique_filename}"
+
         except Exception as e:
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -705,13 +727,11 @@ async def upload_ads(
     # 3. 다른 업로드 옵션 처리
     try:
         if use_option == "인스타그램 스토리":
-            insta_name, user_id, follower_count, media_count = service_upload_insta_info_ads()
-            service_upload_story_ads(content, file_path)
+            insta_name, follower_count, media_count = service_upload_story_ads(content, file_path)
             return insta_name, follower_count, media_count
         elif use_option == "인스타그램 피드":
-            user_id, follower_count, media_count = service_upload_insta_info_ads()
-            service_upload_feed_ads(content, file_path)
-            return user_id, follower_count, media_count
+            insta_name, follower_count, media_count = service_upload_feed_ads(content, file_path, upload_images)
+            return insta_name, follower_count, media_count
         elif use_option == "문자메시지":
             await service_upload_mms_ads(content, file_path)
         elif use_option == '유튜브 썸네일':
@@ -719,13 +739,7 @@ async def upload_ads(
         # elif use_option == '네이버 블로그':
         #     service_upload_naver_ads(content, store_name, tag, file_path)
     except Exception as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "detail": f"Error processing ad data: {str(e)}",
-                "traceback": traceback.format_exc()
-            }
-        )
+        print(f"Error occurred: {e}, 업로드 오류")
 
     # 4. 성공 응답 반환
     return {
@@ -786,8 +800,6 @@ async def upload_youtube_ads(
         )
 
 
-
-
 # Ads 영상 만들기
 @router.post("/generate/video")
 def generate_video(
@@ -806,7 +818,6 @@ def generate_video(
             # 파일 저장
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(final_image.file, buffer)
-
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -822,6 +833,98 @@ def generate_video(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error inserting ad data: {str(e)}"
         )
+
+
+# 업로드 된 이미지로 영상 만들기
+@router.post("/generate/video/image")
+def generate_video_with_text(
+    store_name: str = Form(...),
+    road_name: str = Form(...),
+    tag: str = Form(...),
+    weather: str = Form(...),
+    temp: float = Form(...),
+    male_base: str = Form(...),
+    female_base: str = Form(...),
+    gpt_role: str = Form(...),
+    detail_content: str = Form(...),
+    image: UploadFile = File(...)
+):
+
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+            copyright_prompt = f'''
+                매장명 : {store_name}
+                주소 : {road_name}
+                업종 : {tag}
+                날짜 : {formattedToday}
+                날씨 : {weather}, {temp}℃
+                매출이 가장 높은 남성 연령대 : {male_base}
+                매출이 가장 높은 여성 연령대 : {female_base}
+            '''
+            copyright = service_generate_content(
+                copyright_prompt,
+                gpt_role,
+                detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+
+        # 영상 생성
+        if image:
+            try:
+                # 고유 이미지 명 생성
+                filename, ext = os.path.splitext(image.filename)
+                today = datetime.now().strftime("%Y%m%d")
+                unique_filename = f"{filename}_jyes_ads_final_{today}_{uuid.uuid4()}{ext}"
+                file_path = os.path.join(FULL_PATH, unique_filename)
+                # 파일 저장
+                with open(file_path, "wb") as buffer:
+                    shutil.copyfileobj(image.file, buffer)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error saving final_image file: {str(e)}"
+                )
+        try:
+            result_path= service_generate_video(file_path)
+        except Exception as e:
+            print(f"Error occurred: {e}, 영상 생성 오류")
+
+        # 문구와 영상 합성
+        try:
+            video_path = service_generate_add_text_to_video(result_path, copyright)
+        except Exception as e:
+            print(f"Error occurred: {e}, 영상 합성 오류")
+        return {"copyright": copyright, "result_url": video_path["result_url"]}
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+# 영상 업로드 (인스타)
+@router.post("/upload/video")
+def upload_video_insta(request: AdsUploadVideoInsta):
+    try:
+        video_path = request.video_path
+        content = request.content
+        # print(video_path)
+        print(content)
+        video_path = os.path.normpath(os.path.join(ROOT_PATH, video_path.lstrip("/")))
+        print(video_path)
+        # video_path = "/static/~"
+        insta_name, follower_count, media_count = service_upload_feed_video_ads(content, video_path)
+        return insta_name, follower_count, media_count
+    except Exception as e:
+        print(f"Error occurred: {e}, 업로드 오류")
 
 
 # 새 모델 테스트
@@ -882,7 +985,7 @@ def generate_claude_content(request: AdsContentNewRequest):
     
 
 @router.post("/generate/image/stable")
-def generate_image(request: AdsContentNewRequest):
+def generate_image_stable(request: AdsContentNewRequest):
     try:
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         data = service_generate_image_stable(
@@ -900,7 +1003,7 @@ def generate_image(request: AdsContentNewRequest):
         raise HTTPException(status_code=500, detail=error_msg)
     
 @router.post("/generate/image/dalle")
-def generate_image(request: AdsContentNewRequest):
+def generate_image_dalle(request: AdsContentNewRequest):
     try:
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         data = service_generate_image_dalle(
@@ -919,7 +1022,7 @@ def generate_image(request: AdsContentNewRequest):
     
 
 @router.post("/generate/image/mid")
-def generate_image(request: AdsContentNewRequest):
+def generate_image_mid(request: AdsContentNewRequest):
     try:
         data = service_generate_image_mid(
             request.prompt,

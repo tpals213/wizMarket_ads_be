@@ -82,7 +82,7 @@ def generate_image_dalle(prompt: str,):
 
 # 미드저니 이미지 생성
 def generate_image_mid(prompt):
-    prompt = f"{prompt} {16:9}"
+    prompt = f"{prompt}"
 
     USE_API_TOKEN = os.getenv("USE_API_TOKEN")
     DIS_USE_TOKEN = os.getenv("DIS_USE_TOKEN")

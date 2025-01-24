@@ -36,6 +36,7 @@ from moviepy import *
 from google_auth_oauthlib.flow import Flow
 from fastapi import FastAPI, HTTPException, Request
 from google.oauth2.credentials import Credentials
+import uuid
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -67,26 +68,71 @@ def upload_story_ads(content, file_path):
     try:
         cl = Client()
         cl.login(INSTA_NAME, INSTA_PW)
+        user_id = cl.user_id_from_username(INSTA_NAME) 
+        user_info = cl.user_info(user_id)
+        follower_count = user_info.follower_count  # 팔로워 수
+        media_count = user_info.media_count  # 게시물 수
         cl.photo_upload_to_story(file_path, content)
         # 업로드 성공 후 파일 삭제
         if os.path.exists(file_path):
             os.remove(file_path)
             print(f"파일 삭제 완료: {file_path}")
+        return INSTA_NAME, follower_count, media_count
+    
     except Exception as e:
         print(f"스토리 업로드 중 오류가 발생했습니다: {e}")
 
 # ADS 인스타 피드 업로드
-def upload_feed_ads(content, file_path):
+def upload_feed_ads(content, file_path, upload_images):
     try:
         cl = Client()
         cl.login(INSTA_NAME, INSTA_PW)
-        cl.photo_upload(file_path, content)
-        # 업로드 성공 후 파일 삭제
+        user_id = cl.user_id_from_username(INSTA_NAME)
+        user_info = cl.user_info(user_id)
+        follower_count = user_info.follower_count  # 팔로워 수
+        media_count = user_info.media_count  # 게시물 수
+
+        # 로컬에 저장할 경로 리스트
+        saved_file_paths = []
+
+        # 1. 로컬 서버 루트에 파일 저장
+        for index, upload_image in enumerate(upload_images):
+            try:
+                filename, ext = os.path.splitext(upload_image.filename)
+                unique_filename = f"instagram_feed_{index}_{uuid.uuid4()}{ext}"
+                save_path = unique_filename  # 서버 루트에 저장
+
+                # 파일 내용을 읽기 전에 파일 포인터를 처음으로 이동
+                upload_image.file.seek(0)  # 파일 포인터 초기화
+
+                # 파일 저장
+                with open(save_path, "wb") as buffer:
+                    buffer.write(upload_image.file.read())  # 파일 내용을 로컬에 저장
+                saved_file_paths.append(save_path)
+            except Exception as e:
+                print(f"파일 저장 중 오류 발생: {e}")
+                raise e
+
+        print(f"저장된 파일 경로: {saved_file_paths}")
+        # 2. Instagram 업로드
+        cl.album_upload(saved_file_paths, content)  # 앨범 업로드 (복수 이미지)
+
+        # 3. 업로드 성공 후 로컬 파일 삭제
+        for path in saved_file_paths:
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"파일 삭제 완료: {path}")
+
+        # 4. 받은 file_path도 삭제
         if os.path.exists(file_path):
             os.remove(file_path)
-            print(f"파일 삭제 완료: {file_path}")
+            print(f"file_path 삭제 완료: {file_path}")
+
+        return INSTA_NAME, follower_count, media_count
+
     except Exception as e:
         print(f"피드 업로드 중 오류가 발생했습니다: {e}")
+        raise e
 
 
 # ADS 이메일 전송
@@ -299,6 +345,64 @@ def upload_naver_ads():
         driver.quit()
 
 
+# 인스타 영상 업로드
+def upload_story_video_ads(content, file_path):
+    try:
+        cl = Client()
+        cl.login(INSTA_NAME, INSTA_PW)
+        cl.video_upload_to_story(file_path, content)
+        # 업로드 성공 후 파일 삭제
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"파일 삭제 완료: {file_path}")
+    except Exception as e:
+        print(f"스토리 업로드 중 오류가 발생했습니다: {e}")
+
+def upload_feed_video_ads(content, file_path):
+    try:
+        cl = Client()
+        cl.login(INSTA_NAME, INSTA_PW)
+        user_id = cl.user_id_from_username(INSTA_NAME) 
+        user_info = cl.user_info(user_id)
+        follower_count = user_info.follower_count  # 팔로워 수
+        media_count = user_info.media_count  # 게시물 수
+        print(f"팔로워 수: {follower_count}, 게시물 수: {media_count}")
+        file_path = file_path.replace("\\", "/")
+        clip = VideoFileClip(file_path)
+        resized_clip = clip.resize(height=1920, width=1080)  # 1:1 정사각형
+        resized_clip.write_videofile(file_path, codec="libx264")
+
+        cl.video_upload(file_path, content)
+        # 업로드 성공 후 파일 삭제
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"파일 삭제 완료: {file_path}")
+
+        return INSTA_NAME, follower_count, media_count
+    except Exception as e:
+        # 예외 클래스 이름 출력
+        print(f"예외 발생: {type(e).__name__}")
+        print(f"예외 메시지: {e}")
+
+def upload_reels_video_ads(content, file_path):
+    try:
+        cl = Client()
+        cl.login(INSTA_NAME, INSTA_PW)
+        cl.clip_upload(file_path, content)
+        # 업로드 성공 후 파일 삭제
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"파일 삭제 완료: {file_path}")
+    except Exception as e:
+        print(f"릴스 업로드 중 오류가 발생했습니다: {e}")
+
+
+
+def video_test():
+    clip = VideoFileClip("C:/workspace/python/wizMarket_ads_be/static/video/video_with_text.mp4")
+    resized_clip = clip.resize(height=1920, width=1080)  # 1:1 정사각형
+    resized_clip.write_videofile("out_put.mp4", codec="libx264")
+
 
 if __name__=="__main__":
-    upload_insta_info_ads()
+    video_test()
