@@ -49,7 +49,7 @@ from app.service.ads_generate_by_title import (
 from app.service.ads_generate_test import (
     generate_image_stable as service_generate_image_stable, 
     generate_image_dalle as service_generate_image_dalle,
-    generate_image_mid as service_generate_image_mid
+    generate_image_mid_test as service_generate_image_mid_test
 )
 
 
@@ -1021,10 +1021,10 @@ def generate_image_dalle(request: AdsContentNewRequest):
         raise HTTPException(status_code=500, detail=error_msg)
     
 
-@router.post("/generate/image/mid")
+@router.post("/generate/image/mid/test")
 def generate_image_mid(request: AdsContentNewRequest):
     try:
-        data = service_generate_image_mid(
+        data = service_generate_image_mid_test(
             request.prompt,
         )
         return data

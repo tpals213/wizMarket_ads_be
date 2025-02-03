@@ -99,15 +99,28 @@ def upload_feed_ads(content, file_path, upload_images):
         for index, upload_image in enumerate(upload_images):
             try:
                 filename, ext = os.path.splitext(upload_image.filename)
-                unique_filename = f"instagram_feed_{index}_{uuid.uuid4()}{ext}"
+                unique_filename = f"instagram_feed_{index}_{uuid.uuid4()}.jpg"  # 항상 JPG로 저장
                 save_path = unique_filename  # 서버 루트에 저장
 
                 # 파일 내용을 읽기 전에 파일 포인터를 처음으로 이동
                 upload_image.file.seek(0)  # 파일 포인터 초기화
 
-                # 파일 저장
-                with open(save_path, "wb") as buffer:
-                    buffer.write(upload_image.file.read())  # 파일 내용을 로컬에 저장
+                # PNG를 JPG로 변환하여 저장
+                if ext.lower() == ".png":
+                    from PIL import Image
+                    from io import BytesIO
+
+                    # 이미지 파일을 읽어 Pillow 객체로 변환
+                    image = Image.open(upload_image.file)
+
+                    # JPG 형식으로 변환 후 저장
+                    with open(save_path, "wb") as buffer:
+                        image.convert("RGB").save(buffer, format="JPEG")
+                else:
+                    # PNG가 아닌 경우 그대로 저장
+                    with open(save_path, "wb") as buffer:
+                        buffer.write(upload_image.file.read())
+
                 saved_file_paths.append(save_path)
             except Exception as e:
                 print(f"파일 저장 중 오류 발생: {e}")
@@ -368,9 +381,9 @@ def upload_feed_video_ads(content, file_path):
         media_count = user_info.media_count  # 게시물 수
         print(f"팔로워 수: {follower_count}, 게시물 수: {media_count}")
         file_path = file_path.replace("\\", "/")
-        clip = VideoFileClip(file_path)
-        resized_clip = clip.resize(height=1920, width=1080)  # 1:1 정사각형
-        resized_clip.write_videofile(file_path, codec="libx264")
+        # clip = VideoFileClip(file_path)
+        # resized_clip = clip.resize(height=1920, width=1080)  # 1:1 정사각형
+        # resized_clip.write_videofile(file_path, codec="libx264")
 
         cl.video_upload(file_path, content)
         # 업로드 성공 후 파일 삭제

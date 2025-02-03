@@ -81,89 +81,101 @@ def generate_image_dalle(prompt: str,):
     
 
 # 미드저니 이미지 생성
-def generate_image_mid(prompt):
-    prompt = f"{prompt}"
+def generate_image_mid_test(prompt: str):
+    try:
+        prompt = f"{prompt}"
 
-    USE_API_TOKEN = os.getenv("USE_API_TOKEN")
-    DIS_USE_TOKEN = os.getenv("DIS_USE_TOKEN")
-    DIS_SER_ID = os.getenv("DIS_SER_ID")
-    DIS_CHA_ID = os.getenv("DIS_CHA_ID")
+        USE_API_TOKEN = os.getenv("USE_API_TOKEN")
+        DIS_USE_TOKEN = os.getenv("DIS_USE_TOKEN")
+        DIS_SER_ID = os.getenv("DIS_SER_ID")
+        DIS_CHA_ID = os.getenv("DIS_CHA_ID")
 
-    apiUrl = "https://api.useapi.net/v2/jobs/imagine"
-    token = USE_API_TOKEN
-    discord = DIS_USE_TOKEN
-    server = DIS_SER_ID
-    channel = DIS_CHA_ID
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}"
-    }
-    body = {
-        "prompt": f"{prompt}",
-        "discord": f"{discord}",
-        "server": f"{server}",
-        "channel": f"{channel}"
-    }
-    response = requests.post(apiUrl, headers=headers, json=body)
-    if response.status_code != 200:
-        return {"error": f"Job creation failed with status {response.status_code}"}
+        if not (USE_API_TOKEN and DIS_USE_TOKEN and DIS_SER_ID and DIS_CHA_ID):
+            raise ValueError("One or more required environment variables are missing.")
 
-    job_id = response.json().get("jobid")
-    if not job_id:
-        return {"error": "No job ID returned from API"}
+        apiUrl = "https://api.useapi.net/v2/jobs/imagine"
+        token = USE_API_TOKEN
+        discord = DIS_USE_TOKEN
+        server = DIS_SER_ID
+        channel = DIS_CHA_ID
 
-    # Step 2: Polling to check job status
-    apiUrl = f"https://api.useapi.net/v2/jobs/?jobid={job_id}"
-    while True:
-        response = requests.get(apiUrl, headers=headers)
-        if response.status_code != 200:
-            return {"error": f"Job status check failed with status {response.status_code}"}
-        
-        data = response.json()
-        status = data.get("status")
-        if status == "completed":
-            break  # 작업 완료
-        elif status in ["failed", "canceled"]:
-            return {"error": f"Job failed or canceled with status: {status}"}
-        
-        # 작업이 완료되지 않은 경우 대기 후 재요청
-        print("Job not ready yet, retrying in 5 seconds...")
-        time.sleep(5)  # 5초 대기
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        body = {
+            "prompt": f"{prompt}",
+            "discord": f"{discord}",
+            "server": f"{server}",
+            "channel": f"{channel}"
+        }
 
-    link = data.get("attachments")
+        # Step 1: Job creation
+        response = requests.post(apiUrl, headers=headers, json=body)
+        print(response)
+        response.raise_for_status()  # HTTP 오류 발생 시 예외 발생
+        job_id = response.json().get("jobid")
+        if not job_id:
+            raise ValueError("No job ID returned from API")
 
-    if link and len(link) > 0:
-        url = link[0]['proxy_url']  # 이미지 URL 가져오기
+        # Step 2: Polling to check job status
+        apiUrl = f"https://api.useapi.net/v2/jobs/?jobid={job_id}"
+        while True:
+            response = requests.get(apiUrl, headers=headers)
+            response.raise_for_status()  # HTTP 오류 발생 시 예외 발생
+            
+            data = response.json()
+            status = data.get("status")
+            if status == "completed":
+                break  # 작업 완료
+            elif status in ["failed", "canceled"]:
+                raise RuntimeError(f"Job failed or canceled with status: {status}")
 
-        # 이미지 다운로드
+            # 작업이 완료되지 않은 경우 대기 후 재요청
+            print("Job not ready yet, retrying in 5 seconds...")
+            time.sleep(5)
+
+        link = data.get("attachments")
+        if not link or len(link) == 0:
+            raise ValueError("No attachments found in job response")
+
+        # Step 3: Image download
+        url = link[0]['proxy_url']
         image_response = requests.get(url)
-        if image_response.status_code == 200:
-            image = Image.open(BytesIO(image_response.content))
-            width, height = image.size
+        image_response.raise_for_status()  # HTTP 오류 발생 시 예외 발생
 
-            # 자를 좌표 설정
-            coordinates = [
-                (0, 0, width // 2, height // 2),       # 왼쪽 상단
-                (width // 2, 0, width, height // 2),   # 오른쪽 상단
-                (0, height // 2, width // 2, height),  # 왼쪽 하단
-                (width // 2, height // 2, width, height)  # 오른쪽 하단
-            ]
+        image = Image.open(BytesIO(image_response.content))
+        width, height = image.size
 
-            # 잘린 이미지를 Base64로 변환하여 리스트 생성
-            base64_images = []
-            for coord in coordinates:
-                cropped_image = image.crop(coord)  # 자른 이미지
+        # 자를 좌표 설정
+        coordinates = [
+            (0, 0, width // 2, height // 2),       # 왼쪽 상단
+            (width // 2, 0, width, height // 2),   # 오른쪽 상단
+            (0, height // 2, width // 2, height),  # 왼쪽 하단
+            (width // 2, height // 2, width, height)  # 오른쪽 하단
+        ]
 
-                # 이미지 Base64 변환
-                buffer = BytesIO()
-                cropped_image.save(buffer, format="PNG")
-                buffer.seek(0)
-                base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-                base64_images.append(f"data:image/png;base64,{base64_image}")
+        # 잘린 이미지를 Base64로 변환하여 리스트 생성
+        base64_images = []
+        for coord in coordinates:
+            cropped_image = image.crop(coord)  # 자른 이미지
 
-            # Base64 이미지 리스트 반환
-            return {"images": base64_images}
-        else:
-            return {"error": "Failed to download image from proxy URL"}
-    else:
-        return {"error": "No attachments found in job response"}
+            # 이미지 Base64 변환
+            buffer = BytesIO()
+            cropped_image.save(buffer, format="PNG")
+            buffer.seek(0)
+            base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            base64_images.append(f"data:image/png;base64,{base64_image}")
+
+        # Base64 이미지 리스트 반환
+        return {"images": base64_images}
+
+    except requests.exceptions.RequestException as e:
+        return {"error": f"HTTP 요청 중 오류 발생: {e}"}
+    except ValueError as e:
+        return {"error": f"값 오류 발생: {e}"}
+    except RuntimeError as e:
+        return {"error": f"실행 오류 발생: {e}"}
+    except Exception as e:
+        return {"error": f"알 수 없는 오류 발생: {e}"}
+

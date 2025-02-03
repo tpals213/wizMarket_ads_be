@@ -13,6 +13,7 @@ from runwayml import RunwayML
 import anthropic
 from moviepy import *
 import uuid
+import subprocess
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -409,17 +410,30 @@ def generate_video(file_path):
 # 영상 문구 합치기
 def generate_add_text_to_video(video_path, text):
     root_path = os.getenv("ROOT_PATH", ".")
-    # Load the video clip
-
+    
     video_path = video_path.get('result_url')
     video_path = video_path.lstrip("/").replace("\\", "/")
     video_path = os.path.join(root_path, "app", video_path)
 
+    # ✅ 디버깅: 파일 경로 확인
+    print(f"📂 최종 video_path: {video_path}")
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"🚨 파일이 존재하지 않음: {video_path}")
+
+    # ✅ FFmpeg로 비디오 파일 확인
+    result = subprocess.run(["ffmpeg", "-i", video_path], capture_output=True, text=True)
+    print(result.stderr)  # FFmpeg 오류 로그 출력
+
+    # Load the video clip
     clip = VideoFileClip(video_path)
-    
+    clip = VideoFileClip(video_path).subclipped(0, clip.duration - 0.1)
     # 폰트 경로 처리
     font = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
 
+    # ✅ 디버깅: 폰트 존재 여부 확인
+    print(f"🎨 폰트 경로: {font}")
+    if not os.path.exists(font):
+        raise FileNotFoundError(f"🚨 폰트 파일이 존재하지 않음: {font}")
 
     # Create a text clip
     txt_clip = TextClip(
@@ -430,24 +444,26 @@ def generate_add_text_to_video(video_path, text):
         text_align="center",
     )
 
-    # Set the duration of the text clip to match the video clip
-    txt_clip = txt_clip.with_duration(clip.duration)
-
-    # Center the text
-    txt_clip = txt_clip.with_position('center')
+    txt_clip = txt_clip.with_duration(clip.duration).with_position('center')
 
     # Composite the text clip onto the video clip
     result = CompositeVideoClip([clip, txt_clip])
+    clip.close()
+    txt_clip.close()
 
     exist_video_path = os.getenv("VIDEO_PATH", "/app/static/video")
     save_path = os.path.join(root_path, exist_video_path.lstrip("/"), "video_with_text.mp4")
+
+    # ✅ 저장 경로 디렉토리 체크 후 생성
+    save_dir = os.path.dirname(save_path)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
     # Export the result to a file
     result.write_videofile(save_path)
 
     # 업로드 성공 후 파일 삭제
-    if os.path.exists("output.mp4"):
-        os.remove("output.mp4")
+    if os.path.exists(video_path):
         os.remove(video_path)
-    
+
     return {"result_url": save_path}
