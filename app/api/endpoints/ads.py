@@ -11,6 +11,8 @@ from app.schemas.ads import (
 from fastapi import Request, Body
 from PIL import Image, ImageOps
 import logging
+import base64
+import io
 from typing import List
 from google_auth_oauthlib.flow import Flow
 from app.service.ads import (
@@ -49,7 +51,9 @@ from app.service.ads_generate_by_title import (
 from app.service.ads_generate_test import (
     generate_image_stable as service_generate_image_stable, 
     generate_image_dalle as service_generate_image_dalle,
-    generate_image_mid_test as service_generate_image_mid_test
+    generate_image_mid_test as service_generate_image_mid_test,
+    generate_image_remove_bg as service_generate_image_remove_bg,
+    generate_image_remove_bg_free as service_generate_image_remove_bg_free
 )
 
 
@@ -419,24 +423,32 @@ def generate_content(request: AdsContentRequest):
 
 
 # 모달창에서 이미지 생성하기
-@router.post("/generate/image", response_model=AdsGenerateImageOutPut)
+@router.post("/generate/image")
 def generate_image(request: AdsImageRequest):
     try:
-        # print(request.ai_model_option)
         if request.ai_model_option == 'midJouney':
-            data = service_generate_image_mid(
+            image = service_generate_image_mid(
                 request.use_option,
                 request.ai_mid_prompt,
             )
-            return data
+            return image
         else:
             # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
-            data = service_generate_image(
+            image = service_generate_image(
                 request.use_option,
-                request.ai_model_option,
                 request.ai_prompt,
             )
-            return data
+            base64_images = []
+            for img in image:
+                if isinstance(img, dict):  # 🔹 dict이면 이미지 객체가 아니라 직렬화된 데이터이므로 처리 불필요
+                    base64_images.append(img)  # 이미 변환된 데이터라면 그대로 추가
+                else:
+                    buffered = io.BytesIO()
+                    img.save(buffered, format="PNG")
+                    base64_img = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                    base64_images.append(base64_img)
+
+            return base64_images  # 🔹 리스트 자체를 반환 (FastAPI 자동 직렬화 방지)
     except HTTPException as http_ex:
         logger.error(f"HTTP error occurred: {http_ex.detail}")
         print(f"HTTPException 발생: {http_ex.detail}")  # 추가 디버깅 출력
@@ -681,7 +693,7 @@ async def upload_ads(
     광고 업로드 엔드포인트
     """
     final_image_url = None
-    print(upload_images)
+
     # 1. 파이널 이미지 파일 처리
     if upload_images and len(upload_images) > 0:  # 배열이 비어있지 않은지 확인
         try:
@@ -1037,4 +1049,37 @@ def generate_image_mid(request: AdsContentNewRequest):
         error_msg = f"Unexpected error while processing request: {str(e)}"
         logger.error(error_msg)
         print(f"Exception 발생: {error_msg}")  # 추가 디버깅 출력
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+@router.post("/remove/background")
+def generate_image_remove_bg(
+    image: UploadFile = File(...)
+):
+    try:
+        new_image = service_generate_image_remove_bg(image)
+        return new_image
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+@router.post("/remove/background/free")
+async def generate_image_remove_bg_free(
+    image: UploadFile = File(...)
+):
+    try:
+        input_image = Image.open(io.BytesIO(await image.read()))
+        free_image = service_generate_image_remove_bg_free(input_image)
+        return free_image
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)

@@ -251,7 +251,6 @@ def generate_image(
         ],
     )
     english_image_prompt = completion.choices[0].message.content
-
     # token = os.getenv("FACE_KEY")
     # if model_option == 'basic':
     #     # print(prompt)
@@ -297,7 +296,8 @@ def generate_image(
             '유튜브 썸네일': (1792, 1024),
             '인스타그램 스토리': (1024, 1792),
             '인스타그램 피드': (1024, 1024),
-            '네이버 블로그': (1792, 1024)
+            '네이버 블로그': (1792, 1024),
+            '문자메시지': (1024, 1792)
         }
         resize = resize_mapping.get(use_option, None)
 
@@ -305,7 +305,7 @@ def generate_image(
             raise ValueError("Invalid `use_option` provided or no resize option available.")
 
         resize_str = f"{resize[0]}x{resize[1]}"
-        
+  
         # Prompt 전달 및 이미지 생성
         response = client.images.generate(
             model="dall-e-3",
@@ -314,6 +314,7 @@ def generate_image(
             quality="hd", 
             n=1
         )
+
         image_url = response.data[0].url
         # print(image_url)
         # 이미지 다운로드

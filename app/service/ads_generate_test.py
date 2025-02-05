@@ -13,6 +13,8 @@ from runwayml import RunwayML
 import anthropic
 from moviepy import *
 import uuid
+from rembg import remove
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -179,3 +181,34 @@ def generate_image_mid_test(prompt: str):
     except Exception as e:
         return {"error": f"알 수 없는 오류 발생: {e}"}
 
+def generate_image_remove_bg(image):
+    try:
+        # Pixian API에 파일 직접 전송
+        response = requests.post(
+            'https://api.pixian.ai/api/v2/remove-background',
+            files={"image": (image.filename, image.file, image.content_type)},
+            data={
+                'test': 'true'  # TODO: Remove for production
+            },
+            auth=('pxjrefqwqgdapzl', 'on8deo8fidgmljosuae5h6nb8l39s5iiv043v9nke6rtdklhj4ea')
+        )
+
+        # 요청이 성공하면 Pixian에서 반환된 이미지 저장
+        if response.status_code == requests.codes.ok:
+            return StreamingResponse(io.BytesIO(response.content), media_type="image/png")
+        else:
+            return {"error": f"Pixian API 오류: {response.status_code} - {response.text}"}
+
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+def generate_image_remove_bg_free(image):
+    output_image = remove(image)
+
+    # 메모리에서 바로 반환 (저장 X)
+    img_io = io.BytesIO()
+    output_image.save(img_io, format="PNG")
+    img_io.seek(0)  # 스트림의 시작 위치로 이동
+
+    return StreamingResponse(img_io, media_type="image/png")

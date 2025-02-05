@@ -126,7 +126,7 @@ def upload_feed_ads(content, file_path, upload_images):
                 print(f"파일 저장 중 오류 발생: {e}")
                 raise e
 
-        print(f"저장된 파일 경로: {saved_file_paths}")
+
         # 2. Instagram 업로드
         cl.album_upload(saved_file_paths, content)  # 앨범 업로드 (복수 이미지)
 
