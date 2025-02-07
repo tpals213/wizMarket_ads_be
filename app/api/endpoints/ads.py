@@ -224,7 +224,7 @@ def generate_image_with_text(
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1 = service_combine_ads_1_1(store_name, road_name, copyright, title, image_width, image_height, pil_image)
                     images_list.append(image1)
-            elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡':
+            elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡' or use_option == '네이버 블로그':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
@@ -319,7 +319,8 @@ def generate_upload(request: AdsTestRequest):
         try:
             korean_image_gpt_role = f'''
                 - 이 스토리로 dalle AI를 통해 {request.use_option}에 업로드할 이미지를 생성하기 위한 프롬프트를 작성해주세요. 
-                - 프롬프트를 작성할때 스토리에 어울리는 이미지 스타일, 구도, 방식, 50대 남성의 감성에 어울리는 이미지를 생성할 수 있도록 작성해주세요.
+                - 프롬프트를 작성할때 스토리에 어울리는 이미지 스타일, 구도, 방식, 남성 핵심 고객층인 {request.male_base}과 여성 핵심 고객층인 {request.female_base}의 
+                감성에 어울리는 이미지를 생성할 수 있도록 작성해주세요.
 
                 이미지 스타일 사례
                 - 3D 그래픽, 2D그래픽, 일러스트레이션, 페이퍼 크라프트, 일본 애니메이션, 만화책, 사진, 디오라마, 아이소메트릭, 광고포스터, 판타지, 타이포그라피 등

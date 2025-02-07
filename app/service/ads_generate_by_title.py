@@ -1094,11 +1094,11 @@ def combine_ads_event_4_7(store_name, road_name, content, image_width, image_hei
 
     # 텍스트 설정
     top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
-    bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
     top_font_size = 110
-    bottom_font_size = 80
+    bottom_font_size = 84
     store_name_font_size = 48
     road_name_font_size = 48
 

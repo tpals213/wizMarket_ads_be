@@ -122,19 +122,27 @@ def generate_image_mid_test(prompt: str):
 
         # Step 2: Polling to check job status
         apiUrl = f"https://api.useapi.net/v2/jobs/?jobid={job_id}"
+        timeout_seconds = 180  # 최대 120초 동안 대기
+        start_time = time.time()
+
         while True:
             response = requests.get(apiUrl, headers=headers)
             response.raise_for_status()  # HTTP 오류 발생 시 예외 발생
-            
+
             data = response.json()
             status = data.get("status")
+
             if status == "completed":
                 break  # 작업 완료
             elif status in ["failed", "canceled"]:
                 raise RuntimeError(f"Job failed or canceled with status: {status}")
 
             # 작업이 완료되지 않은 경우 대기 후 재요청
-            print("Job not ready yet, retrying in 5 seconds...")
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= timeout_seconds:
+                raise TimeoutError(f"Job polling exceeded maximum timeout of {timeout_seconds} seconds.")
+
+            print(f"Job not ready yet, retrying in 5 seconds... (Elapsed time: {int(elapsed_time)}s/{timeout_seconds}s)")
             time.sleep(5)
 
         link = data.get("attachments")
