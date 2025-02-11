@@ -156,6 +156,13 @@ class AdsGenerateContentOutPut(BaseModel):
     content: str
 
 
+# 이미지 모델 테스트
+class AdsDrawingModelTest(BaseModel):
+    prompt : str
+    ratio : str
+
+
+
 # 이미지 생성
 class AdsImageRequest(BaseModel):
     use_option: str

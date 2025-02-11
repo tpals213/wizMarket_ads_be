@@ -4,17 +4,17 @@ import os
 from dotenv import load_dotenv
 import requests
 from openai import OpenAI
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image
 from io import BytesIO
 import base64
-import re
 import time
 from runwayml import RunwayML
-import anthropic
 from moviepy import *
-import uuid
 from rembg import remove
 from fastapi.responses import StreamingResponse
+from google import genai
+from google.genai import types
+
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -51,14 +51,20 @@ def generate_image_stable(prompt: str,):
 
 
 # 달리 이미지 생성
-def generate_image_dalle(prompt: str,):
+def generate_image_dalle(prompt: str, ratio: str):
 
     try:
+        size_mapping = {
+            "1:1": "1024x1024",
+            "9:16": "1024x1792",
+            "16:9": "1792x1024"
+        }
+        size = size_mapping.get(ratio, "1024x1024")
         # Prompt 전달 및 이미지 생성
         response = client.images.generate(
             model="dall-e-3",
             prompt=prompt,
-            size="1024x1024",
+            size=size,
             quality="hd", 
             n=1
         )
@@ -83,10 +89,9 @@ def generate_image_dalle(prompt: str,):
     
 
 # 미드저니 이미지 생성
-def generate_image_mid_test(prompt: str):
+def generate_image_mid_test(prompt: str, ratio: str):
     try:
-        prompt = f"{prompt}"
-
+        prompt = f"{prompt}--ar {ratio}"
         USE_API_TOKEN = os.getenv("USE_API_TOKEN")
         DIS_USE_TOKEN = os.getenv("DIS_USE_TOKEN")
         DIS_SER_ID = os.getenv("DIS_SER_ID")
@@ -189,6 +194,46 @@ def generate_image_mid_test(prompt: str):
     except Exception as e:
         return {"error": f"알 수 없는 오류 발생: {e}"}
 
+# IMAGEN3 이미지 생성
+def generate_image_imagen_test(prompt: str, ratio: str):
+    try:
+        try:
+            key = os.getenv("IMAGEN3_API_SECRET")
+            client = genai.Client(api_key=key)
+
+            # Prompt 전달 및 이미지 생성
+            response = client.models.generate_images(
+                model='imagen-3.0-generate-002',
+                prompt=prompt,
+                
+                config=types.GenerateImagesConfig(
+                    number_of_images=4,
+                    aspect_ratio=ratio,
+                    output_mime_type='image/jpeg'
+                )
+            )
+            
+            base64_images = []
+        except Exception as e:
+            error_msg = f"Unexpected error while processing request: {str(e)}"
+            print(error_msg)
+        
+        for generated_image in response.generated_images:
+            image = Image.open(BytesIO(generated_image.image.image_bytes))
+            # 이미지를 Base64로 인코딩
+            buffer = BytesIO()
+            image.save(buffer, format="PNG")
+            buffer.seek(0)
+            base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+            base64_images.append(f"data:image/png;base64,{base64_image}")
+
+        return {"images": base64_images}
+
+    except Exception as e:
+        return {"error": f"이미지 생성 중 오류 발생: {e}"}
+
+# 배경 제거1
 def generate_image_remove_bg(image):
     try:
         # Pixian API에 파일 직접 전송
@@ -210,7 +255,7 @@ def generate_image_remove_bg(image):
     except Exception as e:
         return {"error": str(e)}
     
-
+# 배경 제거 2
 def generate_image_remove_bg_free(image):
     output_image = remove(image)
 

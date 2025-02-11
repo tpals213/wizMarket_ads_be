@@ -13,6 +13,8 @@ from runwayml import RunwayML
 import anthropic
 from moviepy import *
 import uuid
+from google import genai
+from google.genai import types
 import subprocess
 
 logger = logging.getLogger(__name__)
@@ -230,6 +232,44 @@ def generate_image_mid(
     else:
         return {"error": "No attachments found in job response"}
 
+
+# IMAGEN3 이미지 생성
+def generate_image_imagen3(use_option, ai_prompt):
+    try:
+        size_mapping = {
+            '문자메시지': "9:16",
+            '유튜브 썸네일': "16:9",
+            '인스타그램 스토리': "9:16",
+            '인스타그램 피드': "1:1",
+            '배너': "16:9",
+            '네이버 블로그': "9:16"
+        }
+        size = size_mapping.get(use_option, "1024x1024")
+
+        key = os.getenv("IMAGEN3_API_SECRET")
+        client = genai.Client(api_key=key)
+
+        # Prompt 전달 및 이미지 생성
+        response = client.models.generate_images(
+            model='imagen-3.0-generate-002',
+            prompt=ai_prompt,
+            
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio=size,
+                output_mime_type='image/jpeg'
+            )
+        )
+        # 이미지 열기
+        img_parts = []
+        for generated_image in response.generated_images:
+            image = Image.open(BytesIO(generated_image.image.image_bytes))
+            img_parts.append(image)
+
+        return img_parts
+
+    except Exception as e:
+        return {"error": f"이미지 생성 중 오류 발생: {e}"}
 
 
 # 이미지 생성

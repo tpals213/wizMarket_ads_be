@@ -6,7 +6,8 @@ from app.schemas.ads import (
     AdsGenerateContentOutPut, AdsContentRequest,
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
-    AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta
+    AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta,
+    AdsDrawingModelTest
 )
 from fastapi import Request, Body
 from PIL import Image, ImageOps
@@ -30,6 +31,7 @@ from app.service.ads_generate import (
     generate_claude_content as service_generate_claude_content,
     generate_image_mid as service_generate_image_mid,
     generate_add_text_to_video as service_generate_add_text_to_video,
+    generate_image_imagen3  as service_generate_image_imagen3
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
@@ -52,8 +54,9 @@ from app.service.ads_generate_test import (
     generate_image_stable as service_generate_image_stable, 
     generate_image_dalle as service_generate_image_dalle,
     generate_image_mid_test as service_generate_image_mid_test,
+    generate_image_imagen_test as service_generate_image_imagen_test,
     generate_image_remove_bg as service_generate_image_remove_bg,
-    generate_image_remove_bg_free as service_generate_image_remove_bg_free
+    generate_image_remove_bg_free as service_generate_image_remove_bg_free,
 )
 
 
@@ -207,6 +210,7 @@ def generate_image_with_text(
                 gpt_role,
                 detail_content
             )
+            print(gpt_role)
         except Exception as e:
             print(f"Error occurred: {e}, 문구 생성 오류")
 
@@ -341,6 +345,11 @@ def generate_upload(request: AdsTestRequest):
         try:
             if request.ai_model_option == 'midJouney':
                 origin_image = service_generate_image_mid(
+                    request.use_option,
+                    korean_image_prompt
+                )
+            elif request.ai_model_option == "imagen3":
+                origin_image = service_generate_image_imagen3(
                     request.use_option,
                     korean_image_prompt
                 )
@@ -1016,11 +1025,12 @@ def generate_image_stable(request: AdsContentNewRequest):
         raise HTTPException(status_code=500, detail=error_msg)
     
 @router.post("/generate/image/dalle")
-def generate_image_dalle(request: AdsContentNewRequest):
+def generate_image_dalle(request: AdsDrawingModelTest):
     try:
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         data = service_generate_image_dalle(
             request.prompt,
+            request.ratio
         )
         return data
     except HTTPException as http_ex:
@@ -1035,10 +1045,11 @@ def generate_image_dalle(request: AdsContentNewRequest):
     
 
 @router.post("/generate/image/mid/test")
-def generate_image_mid(request: AdsContentNewRequest):
+def generate_image_mid(request: AdsDrawingModelTest):
     try:
         data = service_generate_image_mid_test(
             request.prompt,
+            request.ratio
         )
         return data
 
@@ -1052,6 +1063,29 @@ def generate_image_mid(request: AdsContentNewRequest):
         print(f"Exception 발생: {error_msg}")  # 추가 디버깅 출력
         raise HTTPException(status_code=500, detail=error_msg)
     
+
+@router.post("/generate/image/imagen")
+def generate_image_imagen_test(request: AdsDrawingModelTest):
+    try:
+        data = service_generate_image_imagen_test(
+            request.prompt,
+            request.ratio
+        )
+        return data
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        print(f"HTTPException 발생: {http_ex.detail}")  # 추가 디버깅 출력
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        print(f"Exception 발생: {error_msg}")  # 추가 디버깅 출력
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+
+
 
 @router.post("/remove/background")
 def generate_image_remove_bg(

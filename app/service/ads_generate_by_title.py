@@ -1092,6 +1092,28 @@ def combine_ads_event_4_7(store_name, road_name, content, image_width, image_hei
     # 이미지1(image)와 Rectangle 합성
     image = Image.alpha_composite(image, combined_rectangle)
 
+
+    # 하단 배경
+    bg_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_4_7_bg2.png") 
+    # 불러오기 및 리사이즈
+    bg_image = Image.open(bg_image_path).convert("RGBA")
+ 
+    # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
+    new_width = 1024
+    new_height = 342
+    bg_image = bg_image.resize((new_width, new_height))
+
+    offset_x = 0
+    offset_y = 1450
+
+    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
+    image.paste(bg_image, (offset_x, offset_y), bg_image)
+
+
+
+
+
+
     # 텍스트 설정
     top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
