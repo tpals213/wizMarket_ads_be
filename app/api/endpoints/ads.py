@@ -71,8 +71,8 @@ from datetime import datetime
 import os
 import uuid
 import json
-
-
+from io import BytesIO
+from rembg import remove
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -254,6 +254,114 @@ def generate_image_with_text(
         error_msg = f"Unexpected error while processing request: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+# 업로드 된 이미지 처리 + 배경 제거
+@router.post("/generate/exist/image/remove/background")
+def generate_image_with_text_remove_background(
+    store_name: str = Form(...),
+    road_name: str = Form(...),
+    tag: str = Form(...),
+    weather: str = Form(...),
+    temp: float = Form(...),
+    male_base: str = Form(...),
+    female_base: str = Form(...),
+    gpt_role: str = Form(...),
+    detail_content: str = Form(...),
+    use_option: str = Form(...),
+    title: str = Form(...),
+    image: UploadFile = File(...)
+):
+    images_list = []
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+            copyright_prompt = f'''
+                매장명 : {store_name}
+                주소 : {road_name}
+                업종 : {tag}
+                날짜 : {formattedToday}
+                날씨 : {weather}, {temp}℃
+                매출이 가장 높은 남성 연령대 : {male_base}
+                매출이 가장 높은 여성 연령대 : {female_base}
+            '''
+            copyright = service_generate_content(
+                copyright_prompt,
+                gpt_role,
+                detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+
+
+        # 이미지 배경 제거
+        try:
+            pil_image = Image.open(image.file)
+    
+            # PIL 이미지를 바이트로 변환하여 rembg에 전달
+            image_bytes = BytesIO()
+            pil_image.save(image_bytes, format='PNG')  # 이미지 포맷을 PNG로 저장
+            image_bytes.seek(0)
+            
+            # 배경 제거
+            output_bytes = remove(image_bytes.getvalue())  # remove 함수에 바이트 데이터 전달
+            
+            # 배경이 제거된 이미지를 다시 PIL 객체로 변환
+            pil_image_no_bg = Image.open(BytesIO(output_bytes))
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 합성 오류")
+
+        
+
+        # 이미지와 문구 합성
+        try:
+            # pil_image = Image.open(image.file)
+            # pil_image = ImageOps.exif_transpose(pil_image)
+            # image_width, image_height = pil_image.size
+            pil_image = ImageOps.exif_transpose(pil_image_no_bg)
+            image_width, image_height = pil_image.size
+            if use_option == '인스타그램 피드':
+                if title == '이벤트':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1, image2 = service_combine_ads_1_1(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.extend([image1, image2])
+                elif title == '매장 소개':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1 = service_combine_ads_1_1(store_name, road_name, copyright, title, image_width, image_height, pil_image)
+                    images_list.append(image1)
+            elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡' or use_option == '네이버 블로그':
+                if title == '이벤트':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.extend([image1, image2, image3])
+                elif title == '매장 소개':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.extend([image1, image2, image3])
+                elif title == '상품소개':
+                    # 서비스 레이어 호출 (Base64 이미지 반환)
+                    image1 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.append(image1)
+
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 합성 오류")
+        # 문구와 합성된 이미지 반환
+        return JSONResponse(content={"copyright": copyright, "images": images_list})
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+
+
 
 # AI 생성용 이미지 처리
 @router.post("/upload/content")
