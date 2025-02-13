@@ -22,7 +22,7 @@ def combine_ads_4_7 (store_name, road_name, content, title, image_width, image_h
         image1 = combine_ads_intro_4_7(store_name, road_name, content, image_width, image_height, image)
         image2 = combine_ads_intro_4_7_ver2(store_name, road_name, content, image_width, image_height, image, weater, tag)
         image3 = combine_ads_intro_4_7_ver3(store_name, road_name, content, image_width, image_height, image)
-        return image1, image2,image3
+        return image1, image2, image3
     elif title == "이벤트":
         image1 = combine_ads_event_4_7(store_name, road_name, content, image_width, image_height, image)
         image2 = combine_ads_event_4_7_ver2(store_name, road_name, content, image_width, image_height, image)
@@ -803,7 +803,7 @@ def combine_ads_intro_4_7_ver2(store_name, road_name, content, image_width, imag
         lines_list = split_top_line(top_line, max_length=18)  # 반환값은 리스트
         
         # 첫 번째 줄 렌더링 Y 좌표 설정
-        top_text_y = 447
+        top_text_y = 665
 
         for i, line in enumerate(lines_list):
             if line:  # 줄이 존재할 경우만 처리
@@ -844,7 +844,7 @@ def combine_ads_intro_4_7_ver2(store_name, road_name, content, image_width, imag
     # 텍스트 출력 위치
     text_width = road_name_font.getbbox(text)[2]
     text_x = (image_width - text_width) // 2
-    text_y = 156  # 세로 시작 위치
+    text_y = 368  # 세로 시작 위치
 
     # 텍스트 그리기
     draw.multiline_text(
@@ -857,7 +857,7 @@ def combine_ads_intro_4_7_ver2(store_name, road_name, content, image_width, imag
     # store_name 추가
     store_name_width = store_name_font.getbbox(store_name)[2]
     store_name_x = (image_width - store_name_width) // 2
-    store_name_y = 260
+    store_name_y = 472
     draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill="#FFFFFF")
 
     # 이미지 메모리에 저장
@@ -879,121 +879,33 @@ def combine_ads_intro_4_7_ver3(store_name, road_name, content, image_width, imag
         image = image.convert("RGBA")
 
     # 이미지 크기 확인 및 리사이즈
-    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=932, want_height=695)
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1792)
 
-    # 오래된 효과 처리
-    effect_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_old_effect.png") 
+    # 검은 배경 처리
+    back_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_black_back.png") 
     # 효과 불러오기 및 리사이즈
-    effect_image = Image.open(effect_image_path).convert("RGBA")
+    back_image = Image.open(back_image_path).convert("RGBA")
  
-    # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
+    # sp_image
     new_width = 1024
-    new_height = 1792
-    effect_image = effect_image.resize((new_width, new_height))
+    new_height = 1023
+    back_image = back_image.resize((new_width, new_height))
 
     offset_x = 0
     offset_y = 0
 
     # sp_image를 기존 이미지 위에 합성 (투명도 제거)
-    image.paste(effect_image, (offset_x, offset_y), effect_image)
-
-    # 포스터 처리
-    poster_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_poster.png") 
-    # sp_image 불러오기 및 리사이즈
-    poster_image = Image.open(poster_path).convert("RGBA")
- 
-    # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
-    new_width = 1024
-    new_height = 1792
-    poster_image = poster_image.resize((new_width, new_height))
-
-    # 전달받은 이미지를 포스터 위에 배치
-    offset_x = 48  # 포스터의 왼쪽에서 42px
-    offset_y = 262  # 포스터의 위쪽에서 55px
-    poster_image.paste(image, (offset_x, offset_y), image)
-    image = poster_image
-
-    # QR 처리
-    qr_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_qr.png") 
-    # 효과 불러오기 및 리사이즈
-    qr_image = Image.open(qr_image_path).convert("RGBA")
- 
-    # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
-    new_width = 99
-    new_height = 99
-    qr_image = qr_image.resize((new_width, new_height))
-
-    offset_x = 52
-    offset_y = 1556
-
-    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
-    image.paste(qr_image, (offset_x, offset_y), qr_image)
-
-    # 의문 글자 처리
-    word_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_unkown_word2.png") 
-    # sp_image 불러오기 및 리사이즈
-    word_image = Image.open(word_image_path).convert("RGBA")
- 
-    new_width = 472
-    new_height = 99
-    word_image = word_image.resize((new_width, new_height))
-
-    offset_x = 278
-    offset_y = 1556
-    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
-    image.paste(word_image, (offset_x, offset_y), word_image)
-
-    # 상단 wizad 처리
-    word_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_wizad_madrid.png") 
-    # sp_image 불러오기 및 리사이즈
-    word_image = Image.open(word_image_path).convert("RGBA")
- 
-    new_width = 555
-    new_height = 107
-    word_image = word_image.resize((new_width, new_height))
-
-    offset_x = 48
-    offset_y = 70
-    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
-    image.paste(word_image, (offset_x, offset_y), word_image)
-
-    # 상단 1846 처리
-    word_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_1846.png") 
-    # sp_image 불러오기 및 리사이즈
-    word_image = Image.open(word_image_path).convert("RGBA")
- 
-    new_width = 174
-    new_height = 82
-    word_image = word_image.resize((new_width, new_height))
-
-    offset_x = 802
-    offset_y = 70
-    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
-    image.paste(word_image, (offset_x, offset_y), word_image)
-
-    # 우하단 세로 글씨 처리
-    word_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_intro_4_7_lovewe.png") 
-    # sp_image 불러오기 및 리사이즈
-    word_image = Image.open(word_image_path).convert("RGBA")
- 
-    new_width = 90
-    new_height = 373
-    word_image = word_image.resize((new_width, new_height))
-
-    offset_x = 849
-    offset_y = 1386
-    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
-    image.paste(word_image, (offset_x, offset_y), word_image)
-
+    image.paste(back_image, (offset_x, offset_y), back_image)
 
     # 텍스트 설정
-    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     bottom_path = os.path.join(root_path, "app", "static", "font", "BMHANNA_11yrs_ttf.ttf") 
-    store_name_path = os.path.join(root_path, "app", "static", "font", "DoHyeon-Regular.otf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
     road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
-    top_font_size = 64
+
+    top_font_size = 48
     bottom_font_size = 80
-    store_name_font_size = 48
+    store_name_font_size = 96
     road_name_font_size = 40
 
     # 폰트 설정
@@ -1019,7 +931,7 @@ def combine_ads_intro_4_7_ver3(store_name, road_name, content, image_width, imag
         lines_list = split_top_line(top_line, max_length=18)  # 반환값은 리스트
         
         # 첫 번째 줄 렌더링 Y 좌표 설정
-        top_text_y = 1068
+        top_text_y = 449
 
         for i, line in enumerate(lines_list):
             if line:  # 줄이 존재할 경우만 처리
@@ -1027,28 +939,46 @@ def combine_ads_intro_4_7_ver3(store_name, road_name, content, image_width, imag
                 top_text_width = top_font.getbbox(line)[2]
                 
                 # 좌우 여백을 고려한 중앙 정렬 X 좌표 계산
-                top_text_x = 48
+                top_text_x = 408
                 
                 # 현재 줄 렌더링
-                draw.text((top_text_x, top_text_y), line, font=top_font, fill="#656565")  # RGBA 적용
+                text_x = (image_width - top_text_width) // 2
+                draw.text((text_x, top_text_y), line, font=top_font, fill="#FFFFFF")  # RGBA 적용
                 
                 # Y 좌표를 다음 줄로 이동
                 top_text_y += top_font.getbbox("A")[3] + 5
 
-    text = f"{store_name}\n{road_name}"  # 줄바꿈(\n)으로 가게명과 주소를 한 번에 처리
 
-    # 텍스트 출력 위치
-    text_x = 52  # 가로 위치
-    text_y = 1251  # 세로 시작 위치
+    store_name_width = store_name_font.getbbox(store_name)[2]
+    store_name_x = (image_width - store_name_width) // 2
+    store_name_y = 307
+    draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill="#FFFFFF")
 
-    # 텍스트 그리기
-    draw.multiline_text(
-        (text_x, text_y),  # 시작 좌표
-        text,  # 텍스트 내용
-        font=store_name_font,  # 폰트 (두 텍스트의 폰트를 동일하게 설정)
-        fill="#000000",  # 텍스트 색상
-        spacing=10  # 줄 간격
-    )
+    road_name_width = road_name_font.getbbox(road_name)[2]
+    road_name_x = (image_width - road_name_width) // 2
+    road_name_y = 1639
+    draw.text((road_name_x, road_name_y), road_name, font=road_name_font, fill="#FFFFFF")
+
+    # 흰선 그리기
+    # 선의 너비 및 위치 설정
+    line_width = 642
+    line_y = 197  # 위에서부터 197px 떨어진 위치
+    line_x_start = (image_width - line_width) // 2  # 중앙 정렬 X 시작점
+    line_x_end = line_x_start + line_width  # X 끝점
+    draw.line((line_x_start, line_y, line_x_end, line_y), fill="#FFFFFF", width=3)  # width 값으로 선 두께 조절 가능
+
+
+    # 선의 너비 및 위치 설정
+    line_width = 642
+    line_y = 525 # 위에서부터 197px 떨어진 위치
+    line_x_start = (image_width - line_width) // 2  # 중앙 정렬 X 시작점
+    line_x_end = line_x_start + line_width  # X 끝점
+
+    # 흰색 선 그리기
+    draw.line((line_x_start, line_y, line_x_end, line_y), fill="#FFFFFF", width=3)  # width 값으로 선 두께 조절 가능
+
+
+
 
 
     # 이미지 메모리에 저장

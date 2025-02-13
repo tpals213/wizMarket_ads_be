@@ -147,6 +147,22 @@ class AdsTestRequest(BaseModel):
     detail_content: Optional[str]
 
 
+class AdsTemplateRequest(BaseModel):
+    gpt_role: str
+    weather: str
+    temp: float
+    male_base: str
+    female_base: str
+    store_name: str
+    road_name: str
+    tag: str
+    use_option: str
+    title: str
+    ai_model_option: str
+    seed_prompt : str
+    detail_content: Optional[str]
+
+
 # 테스트 문구 생성
 class AdsContentNewRequest(BaseModel):
     prompt : str

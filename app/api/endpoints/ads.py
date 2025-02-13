@@ -7,7 +7,7 @@ from app.schemas.ads import (
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
     AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta,
-    AdsDrawingModelTest
+    AdsDrawingModelTest, AdsTemplateRequest
 )
 from fastapi import Request, Body
 from PIL import Image, ImageOps
@@ -31,7 +31,8 @@ from app.service.ads_generate import (
     generate_claude_content as service_generate_claude_content,
     generate_image_mid as service_generate_image_mid,
     generate_add_text_to_video as service_generate_add_text_to_video,
-    generate_image_imagen3  as service_generate_image_imagen3
+    generate_image_imagen3  as service_generate_image_imagen3,
+    generate_image_imagen3_template as service_generate_image_imagen3_template
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
@@ -105,13 +106,14 @@ def select_ads_init_info(store_business_number: str, request: Request):
 
 # 광고 채널 추천
 @router.post("/suggest/channel")
-def select_ads_init_info(request: AdsSuggestChannelRequest):
+def select_suggest_channel(request: AdsSuggestChannelRequest):
     # 쿼리 매개변수로 전달된 store_business_number 값 수신
     try:
         gpt_role = '''
-            다음과 같은 매장에서 온라인 홍보 콘텐츠를 제작하여 포스팅하려고 합니다. 
-            이 매장에서 가장 좋은 포스팅 채널은 무엇이 좋겠습니까? 
-            제시된 채널 중에 하나를 선택해주고 그 이유와 홍보전략을 300자 내외로 작성해주세요.
+            당신은 온라인 광고 전문가 입니다. 
+            오프라인 점포를 하는 매장에서 다음과 같은 내용으로 홍보 콘텐츠를 제작하여 포스팅하려고 합니다. 
+            이 매장에서 가장 좋은 홍보 방법 무엇이 좋겠습니까? 
+            제시된 상황에 따라 채널과  디자인 스타일 중에 하나를 선택해주고 그 이유와 홍보전략을 200자 내외로 작성해주세요.
         '''
 
         prompt = f'''
@@ -120,10 +122,12 @@ def select_ads_init_info(request: AdsSuggestChannelRequest):
             업종 : {request.tag}
             주 고객층 : {request.male_base}, {request.female_base}
             홍보 주제 : {request.title}
-            온라인 홍보채널 : 문자메시지, 인스타그램 스토리, 인스타그램 피드, 네이버 블로그, 카카오톡, 자사 홈페이지, 페이스북, 디스코드, 트위터, 미디엄, 네이버 밴드, 캐치테이블, 배달의 민족
+            홍보채널 : 문자메시지, 인스타그램 스토리, 인스타그램 피드, 네이버 블로그, 
+                        카카오톡, 자사 홈페이지, 페이스북, 디스코드, 트위터, 미디엄, 네이버 밴드, 캐치테이블, 배달의 민족
+            디자인 스타일 : 3D 일러스트(3d, 클레이메이션, 픽셀디자인, 레고스타일, 닌텐도 스타일, paper craft, 디오라마, isometric), 
+                            실사 사진, 캐릭터.만화, 레트로 감성, AI로 생성한 남녀모델, 예술(르노와르, 피카소, 고흐 등) 
         '''
-
-        detail_contet = "값 없음"
+        detail_contet = ""
 
         channel = service_generate_content(
             prompt,
@@ -517,6 +521,111 @@ def generate_upload(request: AdsTestRequest):
         error_msg = f"Unexpected error while processing request: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+# AI 생성용 템플릿 버전 이미지 처리
+@router.post("/generate/template")
+def generate_template(request: AdsTemplateRequest):
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+            copyright_prompt = f'''
+                매장명 : {request.store_name}
+                주소 : {request.road_name}
+                업종 : {request.tag}
+                날짜 : {formattedToday}
+                날씨 : {request.weather}, {request.temp}℃
+                매출이 가장 높은 남성 연령대 : {request.male_base}
+                매출이 가장 높은 여성 연령대 : {request.female_base}
+            '''
+
+            copyright = service_generate_content(
+                copyright_prompt,
+                request.gpt_role,
+                request.detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+        
+        # 전달받은 선택한 템플릿의 시드 프롬프트 gpt 로 소분류 바꾸기
+        seed_image_prompt = request.seed_prompt
+
+        # 이미지 생성
+        try:
+            if request.ai_model_option == 'midJouney':
+                origin_image = service_generate_image_mid(
+                    request.use_option,
+                    seed_image_prompt
+                )
+            elif request.ai_model_option == "imagen3":
+                origin_image = service_generate_image_imagen3_template(
+                    request.use_option,
+                    request.tag,
+                    seed_image_prompt
+                )
+            else:
+                origin_image = service_generate_image(
+                    request.use_option,
+                    seed_image_prompt
+                )
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 생성 오류")
+
+        # 사이즈 조정 및 합성
+        images_list = []
+        try:
+            for i, img in enumerate(origin_image):
+                image_width, image_height = img.size  # 이미지 크기 가져오기
+                print(f"Image {i + 1}: Width = {image_width}, Height = {image_height}")
+
+                if request.use_option == '인스타그램 피드':
+                    if request.title == '이벤트':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1, image2 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.extend([image1, image2])
+                    elif request.title == '매장 소개':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.append(image1)
+                elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
+                    if request.title == '이벤트':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1, image2, image3 = service_combine_ads_4_7(
+                            request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
+                        )
+                        images_list.extend([image1, image2, image3])
+                    elif request.title == '매장 소개':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1, image2, image3 = service_combine_ads_4_7(
+                            request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
+                        )
+                        images_list.extend([image1, image2, image3])
+                    elif request.title == '상품소개':
+                        # 서비스 레이어 호출 (Base64 이미지 반환)
+                        image1 = service_combine_ads_4_7(
+                            request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
+                        )
+                        images_list.append(image1)
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 합성 오류")
+        
+        # 문구와 합성된 이미지 반환
+        return JSONResponse(content={"copyright": copyright, "images": images_list})
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+
+
 
 
 # 문구 생성

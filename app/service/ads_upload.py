@@ -126,9 +126,11 @@ def upload_feed_ads(content, file_path, upload_images):
                 print(f"파일 저장 중 오류 발생: {e}")
                 raise e
 
-
-        # 2. Instagram 업로드
-        cl.album_upload(saved_file_paths, content)  # 앨범 업로드 (복수 이미지)
+        if len(saved_file_paths) == 1:
+            # 2. Instagram 업로드
+            cl.photo_upload(saved_file_paths[0], content)  # 앨범 업로드 (복수 이미지)
+        else:
+            cl.album_upload(saved_file_paths, content)  # 앨범 업로드 (복수 이미지)
 
         # 3. 업로드 성공 후 로컬 파일 삭제
         for path in saved_file_paths:
