@@ -344,7 +344,7 @@ def combine_ads_store_intro_ver_2(store_name, road_name, content, image_width, i
     draw = ImageDraw.Draw(image)
 
     content = content.strip('"')
-    max_chars_per_column = 11  # 한 칼럼 최대 글자 수
+    max_chars_per_column = 9  # 한 칼럼 최대 글자 수
     lines = split_text_by_column(content, max_chars_per_column)
     
     if len(lines) > 0:
