@@ -214,7 +214,6 @@ def generate_image_with_text(
                 gpt_role,
                 detail_content
             )
-            print(gpt_role)
         except Exception as e:
             print(f"Error occurred: {e}, 문구 생성 오류")
 
@@ -449,7 +448,6 @@ def generate_upload(request: AdsTestRequest):
                 korean_image_gpt_role,
                 detail_content
             )
-            # print(korean_image_prompt)
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 생성 오류")
 
@@ -533,13 +531,9 @@ def generate_template(request: AdsTemplateRequest):
             formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
 
             copyright_prompt = f'''
-                매장명 : {request.store_name}
-                주소 : {request.road_name}
-                업종 : {request.tag}
-                날짜 : {formattedToday}
-                날씨 : {request.weather}, {request.temp}℃
-                매출이 가장 높은 남성 연령대 : {request.male_base}
-                매출이 가장 높은 여성 연령대 : {request.female_base}
+                {request.store_name} 업체의 {request.use_option} 위한 광고 컨텐츠를 제작하려고 합니다.
+                {request.tag}, {formattedToday}, {request.weather}, {request.temp}℃, {request.detail_content}
+                핵심 남성 고객 연령대 : {request.male_base}, {request.female_base} 15자 내외로 내용으로 작성해주세요
             '''
 
             copyright = service_generate_content(
@@ -571,6 +565,16 @@ def generate_template(request: AdsTemplateRequest):
                     request.use_option,
                     seed_image_prompt
                 )
+
+            output_images = []
+            for image in origin_image:  # 리스트의 각 이미지를 순회
+                buffer = BytesIO()
+                image.save(buffer, format="PNG")  # 이미지 저장
+                buffer.seek(0)
+                
+                # Base64 인코딩 후 리스트에 추가
+                output_images.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
+
         except Exception as e:
             print(f"Error occurred: {e}, 이미지 생성 오류")
 
@@ -584,12 +588,12 @@ def generate_template(request: AdsTemplateRequest):
                 if request.use_option == '인스타그램 피드':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
-                        images_list.extend([image1, image2])
+                        image1, image2, image3 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.extend([image1, image2, image3])
                     elif request.title == '매장 소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
-                        images_list.append(image1)
+                        image1, image2 = service_combine_ads_1_1(request.store_name, request.road_name, copyright, request.title, image_width, image_height, img)
+                        images_list.extend([image1, image2])
                 elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
@@ -613,7 +617,7 @@ def generate_template(request: AdsTemplateRequest):
             print(f"Error occurred: {e}, 이미지 합성 오류")
         
         # 문구와 합성된 이미지 반환
-        return JSONResponse(content={"copyright": copyright, "images": images_list})
+        return JSONResponse(content={"copyright": copyright, "origin_image": output_images, "images": images_list})
 
     except HTTPException as http_ex:
         logger.error(f"HTTP error occurred: {http_ex.detail}")
@@ -1155,10 +1159,9 @@ def upload_video_insta(request: AdsUploadVideoInsta):
     try:
         video_path = request.video_path
         content = request.content
-        # print(video_path)
-        print(content)
+
         video_path = os.path.normpath(os.path.join(ROOT_PATH, video_path.lstrip("/")))
-        print(video_path)
+
         # video_path = "/static/~"
         insta_name, follower_count, media_count = service_upload_feed_video_ads(content, video_path)
         return insta_name, follower_count, media_count
@@ -1170,7 +1173,6 @@ def upload_video_insta(request: AdsUploadVideoInsta):
 @router.post("/generate/test/new/content", response_model=AdsGenerateContentOutPut)
 def generate_new_content(request: AdsContentNewRequest):
     try:
-        # print(request.prompt)
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         content = service_generate_new_content(
             request.prompt
@@ -1189,7 +1191,6 @@ def generate_new_content(request: AdsContentNewRequest):
 @router.post("/generate/test/old/content", response_model=AdsGenerateContentOutPut)
 def generate_old_content(request: AdsContentNewRequest):
     try:
-        # print(request.prompt)
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         content = service_generate_old_content(
             request.prompt
@@ -1208,7 +1209,6 @@ def generate_old_content(request: AdsContentNewRequest):
 @router.post("/generate/image/claude/content", response_model=AdsGenerateContentOutPut)
 def generate_claude_content(request: AdsContentNewRequest):
     try:
-        # print(request.prompt)
         # 서비스 레이어 호출: 요청의 데이터 필드를 unpack
         content = service_generate_claude_content(
             request.prompt
