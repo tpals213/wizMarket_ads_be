@@ -16,6 +16,8 @@ import uuid
 from google import genai
 from google.genai import types
 import subprocess
+from PIL import Image
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -273,12 +275,12 @@ def generate_image_imagen3(use_option, ai_prompt):
 
 
 # IMAGEN3 이미지 생성
-def generate_image_imagen3_template(use_option, tag, seed_image_prompt):
+def generate_image_imagen3_template(use_option, copyright, tag, seed_image_prompt):
 
     try:
         # gpt 영역
         gpt_content = f"""
-            주어진 프롬프트 스타일로 {tag} 내용으로 변경해서 영문 프롬프트를 작성해주세요.
+            주어진 프롬프트 스타일로 {copyright}와 {tag} 내용으로 변경해서 영문 프롬프트를 작성해주세요.
         """    
         content = seed_image_prompt
         client = OpenAI(api_key=os.getenv("GPT_KEY"))
@@ -302,7 +304,19 @@ def generate_image_imagen3_template(use_option, tag, seed_image_prompt):
             '네이버 블로그': "9:16",
             '카카오톡': "9:16"
         }
-        size = size_mapping.get(use_option, "1024x1024")
+
+        resize_mapping = {
+            '문자메시지': (1024, 1792),
+            '유튜브 썸네일': (1792, 1024),
+            '인스타그램 스토리': (1024, 1792),
+            '인스타그램 피드': (1024, 1024),
+            '배너': (1792, 1024),
+            '네이버 블로그': (1024, 1792),
+            '카카오톡': (1024, 1792)
+        }
+
+        size = size_mapping.get(use_option, "1:1")  # 기본값 1:1 유지
+        resize_size = resize_mapping.get(use_option, (1024, 1024))  # 최종 리사이징 크기
 
         key = os.getenv("IMAGEN3_API_SECRET")
         client = genai.Client(api_key=key)
@@ -311,18 +325,21 @@ def generate_image_imagen3_template(use_option, tag, seed_image_prompt):
         response = client.models.generate_images(
             model='imagen-3.0-generate-002',
             prompt=tag_image_prompt,
-            
             config=types.GenerateImagesConfig(
                 number_of_images=1,
-                aspect_ratio=size,
+                aspect_ratio=size,  # 비율 유지
                 output_mime_type='image/jpeg'
             )
         )
-        # 이미지 열기
+
+        # 이미지 열기 및 최종 리사이징
         img_parts = []
         for generated_image in response.generated_images:
-            image = Image.open(BytesIO(generated_image.image.image_bytes))
-            img_parts.append(image)
+            img = Image.open(BytesIO(generated_image.image.image_bytes))
+
+            # 🔥 생성된 후, 최종 크기로 리사이징
+            img_resized = img.resize(resize_size, Image.LANCZOS)  # 고품질 리사이징
+            img_parts.append(img_resized)
 
         return img_parts
 

@@ -83,7 +83,7 @@ def upload_story_ads(content, file_path):
         print(f"스토리 업로드 중 오류가 발생했습니다: {e}")
 
 # ADS 인스타 피드 업로드
-def upload_feed_ads(content, file_path, upload_images):
+def upload_feed_ads(content, file_path, upload_images, insta_copyright):
     try:
         cl = Client()
         cl.login(INSTA_NAME, INSTA_PW)
@@ -125,16 +125,14 @@ def upload_feed_ads(content, file_path, upload_images):
             except Exception as e:
                 print(f"파일 저장 중 오류 발생: {e}")
                 raise e
-        tags = ["테스트 태그", "태그2", "JYES"]
-        # 해시태그를 문자열로 변환하여 캡션에 추가
-        hashtags = ' '.join([f'#{tag}' for tag in tags])
-        caption_with_tags = f"{content}\n\n{hashtags}"
+        
+     
 
         if len(saved_file_paths) == 1:
             # 2. Instagram 업로드
-            cl.photo_upload(saved_file_paths[0], caption_with_tags)  # 사진 업로드 (단수 이미지)
+            cl.photo_upload(saved_file_paths[0], insta_copyright)  # 사진 업로드 (단수 이미지)
         else:
-            cl.album_upload(saved_file_paths, caption_with_tags)  # 앨범 업로드 (복수 이미지)
+            cl.album_upload(saved_file_paths, insta_copyright)  # 앨범 업로드 (복수 이미지)
 
         # 3. 업로드 성공 후 로컬 파일 삭제
         for path in saved_file_paths:
