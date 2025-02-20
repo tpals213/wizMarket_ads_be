@@ -59,6 +59,9 @@ from app.service.ads_generate_test import (
     generate_image_remove_bg as service_generate_image_remove_bg,
     generate_image_remove_bg_free as service_generate_image_remove_bg_free,
 )
+from app.service.ads_image_treat import (
+    trat_image_turn as service_trat_image_turn
+)
 
 
 
@@ -74,6 +77,7 @@ import uuid
 import json
 from io import BytesIO
 from rembg import remove
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -306,7 +310,10 @@ def generate_image_with_text_remove_background(
         # 이미지 배경 제거
         try:
             pil_image = Image.open(image.file)
-    
+
+            # EXIF 데이터 확인 및 회전 보정
+            pil_image = service_trat_image_turn(pil_image)
+
             # PIL 이미지를 바이트로 변환하여 rembg에 전달
             image_bytes = BytesIO()
             pil_image.save(image_bytes, format='PNG')  # 이미지 포맷을 PNG로 저장
@@ -351,12 +358,12 @@ def generate_image_with_text_remove_background(
             elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡' or use_option == '네이버 블로그':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
-                    image1, image2, image3 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
-                    images_list.extend([image1, image2, image3])
+                    image1, image2, image3, image4 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.extend([image1, image2, image3, image4])
                 elif title == '매장 소개':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
-                    image1, image2, image4, image5, image6 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
-                    images_list.extend([image1, image2, image4, image5, image6])
+                    image1, image2, image4, image5, image6, image7 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.extend([image1, image2, image4, image5, image6, image7])
                 elif title == '상품소개':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
@@ -546,10 +553,12 @@ def generate_upload(request: AdsTestRequest):
                 elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2, image3 = service_combine_ads_4_7(
+                        
+                        image1, image2, image3, image4 = service_combine_ads_4_7(
                             request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
                         )
-                        images_list.extend([image1, image2, image3])
+                        
+                        images_list.extend([image1, image2, image3, image4])
                     elif request.title == '매장 소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
                         image1, image2, image3 = service_combine_ads_4_7(
@@ -664,16 +673,16 @@ def generate_template(request: AdsTemplateRequest):
                 elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2, image3 = service_combine_ads_4_7(
+                        image1, image2, image3, image4 = service_combine_ads_4_7(
                             request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
                         )
-                        images_list.extend([image1, image2, image3])
+                        images_list.extend([image1, image2, image3, image4])
                     elif request.title == '매장 소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2, image4, image5, image6 = service_combine_ads_4_7(
+                        image1, image2, image4, image5, image6, image7 = service_combine_ads_4_7(
                             request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
                         )
-                        images_list.extend([image1, image2, image4, image5, image6])
+                        images_list.extend([image1, image2, image4, image5, image6, image7])
                     elif request.title == '상품소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
                         image1 = service_combine_ads_4_7(
@@ -1443,3 +1452,7 @@ async def generate_image_remove_bg_free(
         error_msg = f"Unexpected error while processing request: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+    
+
+    
+
