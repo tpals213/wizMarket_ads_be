@@ -100,42 +100,42 @@ def split_text_by_column(text, max_chars_per_column):
     return columns
 
 
-# 이미지 사이즈 조정
-def resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1024):
-    print('조정 시작')
-    print(f"원본 크기: {image_width}x{image_height}, 목표 크기: {want_width}x{want_height}")
+from PIL import Image
 
-    # 이미지가 원하는 크기보다 작은 경우 비율 조정하여 확대
-    if image_width < want_width:
-        scale_factor = want_width / image_width
-        new_height = int(image_height * scale_factor)
-        image = image.resize((want_width, new_height), Image.Resampling.LANCZOS)
-        image_width, image_height = want_width, new_height
-        print("가로가 작아서 비율 유지하며 확대")
+from PIL import Image
 
-    if image_height < want_height:
-        scale_factor = want_height / image_height
-        new_width = int(image_width * scale_factor)
-        image = image.resize((new_width, want_height), Image.Resampling.LANCZOS)
-        image_width, image_height = new_width, want_height
-        print("세로가 작아서 비율 유지하며 확대")
+def resize_and_crop_image(image_width, image_height, image, want_width=730, want_height=730):
+    """이미지를 원하는 크기로 조정하고 중앙을 기준으로 크롭 (가로/세로 최소 기준 유지)"""
+    
+    # 원본 및 목표 비율 계산
+    target_ratio = want_width / want_height
+    original_ratio = image_width / image_height
 
-    # 가로를 먼저 원하는 크기로 맞추기 (축소)
-    scale_factor = want_width / image_width
-    new_height = int(image_height * scale_factor)
-    image = image.resize((want_width, new_height), Image.Resampling.LANCZOS)
-    image_width, image_height = want_width, new_height
-    print(f"가로 맞춤 후 크기: {image_width}x{image_height}")
+    # 1. 리사이징 (최소 한 변이 목표 크기 이상이 되도록 조정)
+    if original_ratio > target_ratio:
+        # 가로가 더 긴 경우 → 세로를 맞추고 가로를 키움
+        new_height = want_height
+        new_width = int(image_width * (want_height / image_height))
+    else:
+        # 세로가 더 긴 경우 → 가로를 맞추고 세로를 키움
+        new_width = want_width
+        new_height = int(image_height * (want_width / image_width))
 
-    # 세로가 목표보다 크다면 중앙을 기준으로 크롭
-    if image_height > want_height:
-        top = (image_height - want_height) // 2
-        image = image.crop((0, top, want_width, top + want_height))
-        image_height = want_height
-        print("세로 초과분 중앙 기준으로 잘라냄")
+    # 리사이징 적용
+    image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    print(f"결과 크기: {image.size}")
+    # 2. 크롭 (중앙 기준)
+    left = (new_width - want_width) // 2
+    top = (new_height - want_height) // 2
+    right = left + want_width
+    bottom = top + want_height
+
+    image = image.crop((left, top, right, bottom))
+
     return want_width, want_height, image
+
+
+
 
 
 
