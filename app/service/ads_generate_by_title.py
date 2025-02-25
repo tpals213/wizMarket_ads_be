@@ -35,7 +35,8 @@ def combine_ads_4_7 (store_name, road_name, content, title, image_width, image_h
         image2 = combine_ads_event_4_7_ver2(store_name, road_name, content, image_width, image_height, image)
         image3 = combine_ads_event_4_7_ver3(store_name, road_name, content, image_width, image_height, image)
         image4 = combine_ads_event_4_7_ver4(store_name, road_name, content, image_width, image_height, image)
-        return image1, image2, image3, image4
+        image5 = combine_ads_event_4_7_ver5(store_name, road_name, content, image_width, image_height, image)
+        return image1, image2, image3, image4, image5
     elif title == "상품소개":
         image = combine_ads_pro_intro_4_7(store_name, road_name, content, image_width, image_height, image)
         return image
@@ -2713,6 +2714,158 @@ def combine_ads_event_4_7_ver4(store_name, road_name, content, image_width, imag
     base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
     
     return f"data:image/png;base64,{base64_image}"
+
+# 이벤트 4:7 버전5
+def combine_ads_event_4_7_ver5(store_name, road_name, content, image_width, image_height, image):
+    root_path = os.getenv("ROOT_PATH", ".")
+    
+    # RGBA 모드로 변환
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+
+    # 이미지 크기 확인 및 리사이즈
+    image_width, image_height, image = resize_and_crop_image(image_width, image_height, image, want_width=1024, want_height=1792)
+
+    
+    # 배경 처리
+    qr_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_4_7_ver_5_bottom_black.png") 
+    # 효과 불러오기 및 리사이즈
+    qr_image = Image.open(qr_image_path).convert("RGBA")
+ 
+    # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
+    new_width = 1024
+    new_height = 473
+    qr_image = qr_image.resize((new_width, new_height))
+
+    offset_x = 0
+    offset_y = 1319
+
+    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
+    image.paste(qr_image, (offset_x, offset_y), qr_image)
+
+
+    # 배경 처리
+    back_image_path = os.path.join(root_path, "app", "static", "images", "ads_back", "ads_back_event_4_7_ver_5_top_black.png") 
+    # 효과 불러오기 및 리사이즈
+    back_image = Image.open(back_image_path).convert("RGBA")
+ 
+    # sp_image의 가로 길이를 기존 이미지의 가로 길이의 1/4로 맞추고, 세로는 비율에 맞게 조정
+    new_width = 1024
+    new_height = 722
+    back_image = back_image.resize((new_width, new_height))
+
+    offset_x = 0
+    offset_y = 0
+
+    # sp_image를 기존 이미지 위에 합성 (투명도 제거)
+    image.paste(back_image, (offset_x, offset_y), back_image)
+    
+
+    top_path = os.path.join(root_path, "app", "static", "font", "Pretendard-Bold.ttf") 
+    bottom_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    store_name_path = os.path.join(root_path, "app", "static", "font", "JejuHallasan.ttf") 
+    road_name_path = os.path.join(root_path, "app", "static", "font", "Pretendard-R.ttf") 
+    base_copy_right_path = os.path.join(root_path, "app", "static", "font", "DoHyeon-Regular.otf")
+
+    top_font_size = 63
+    bottom_font_size = 35
+    store_name_font_size = 67
+    road_name_font_size = 36
+    
+
+    # 폰트 설정
+    top_font = ImageFont.truetype(top_path, int(top_font_size))
+    bottom_font = ImageFont.truetype(bottom_path, int(bottom_font_size))
+    store_name_font = ImageFont.truetype(store_name_path, int(store_name_font_size))
+    road_name_font = ImageFont.truetype(road_name_path, int(road_name_font_size))
+    
+    
+    # 텍스트 렌더링 (합성 작업 후)
+    draw = ImageDraw.Draw(image)
+
+    
+    lines = re.findall(r':\s*(.*)', content)  # ':' 이후의 텍스트만 추출
+    lines = [line.strip() for line in lines if line.strip()]  # 공백 제거 및 빈 문자열 제외
+
+    if len(lines) > 0:
+        top_line = lines[0].strip()
+        lines_list = split_top_line(top_line, max_length=10)  # 반환값은 리스트
+
+        # 첫 번째 줄 렌더링 Y 좌표 설정
+        top_text_y = 324
+
+        # 반복적으로 각 줄 렌더링
+        for i, line in enumerate(lines_list):
+            if line:  # 줄이 존재할 경우만 처리
+                # 중앙 정렬 X 좌표 계산
+                top_text_width = top_font.getbbox(line)[2]
+                top_text_x = (1024 - top_text_width) // 2
+                # 텍스트 렌더링
+                draw.text((top_text_x, top_text_y), line, font=top_font, fill="#ACACAC")
+                # print(line)
+                # Y 좌표를 다음 줄로 이동
+                top_text_y += top_font.getbbox("A")[3] + 5
+
+    # 하단 텍스트 추가
+    bottom_lines = lines[1:]  # 첫 번째 줄을 제외한 나머지
+    line_height = bottom_font.getbbox("A")[3] + 4
+    text_y = 541
+
+    for line in bottom_lines:
+        line = line.strip()
+        # 하단 줄을 분리하여 20자 이상일 경우 나눔
+        split_lines = split_top_line(line, max_length=18)
+
+        for i, sub_line in enumerate(split_lines):
+            sub_line = sub_line.strip()
+            text_width = bottom_font.getbbox(sub_line)[2]
+
+            text_x = (image_width - 188 - 188 - text_width) // 2 + 188
+
+            draw.text((text_x, text_y), sub_line, font=bottom_font, fill="white")
+            text_y += line_height  # 다음 줄로 이동
+
+    
+    # store_name 추가
+    store_name_width = store_name_font.getbbox(store_name)[2]
+    store_name_height = store_name_font.getbbox(store_name)[3]
+    store_name_x = (image_width - store_name_width) // 2
+    store_name_y = 227
+    draw.text((store_name_x, store_name_y), store_name, font=store_name_font, fill=(255, 255, 255))
+
+
+    # road_name 추가
+    road_name_width = road_name_font.getbbox(road_name)[2]
+    road_name_height = road_name_font.getbbox(road_name)[3]
+    road_name_x = (image_width - road_name_width) // 2
+    road_name_y = 1676
+    draw.text((road_name_x, road_name_y), road_name, font=road_name_font, fill=(255, 255, 255))
+
+    # 선의 너비 및 위치 설정
+    line_with = 512
+    line_y = 314  # 선의 Y 좌표
+    line_x_start = 267  # 선의 시작점 (왼쪽 끝)
+    line_x_end = line_x_start + line_with  # 선의 끝점 (road_name 시작 위치에서 40px 왼쪽)
+    draw.line((line_x_start, line_y, line_x_end, line_y), fill="#FFFFFF", width=1) 
+
+    # 선의 너비 및 위치 설정
+    line_with = 512
+    line_y = 504  # 선의 Y 좌표
+    line_x_start = 267  # 선의 시작점 (왼쪽 끝)
+    line_x_end = line_x_start + line_with  # 선의 끝점 (road_name 시작 위치에서 40px 왼쪽)
+    draw.line((line_x_start, line_y, line_x_end, line_y), fill="#FFFFFF", width=1) 
+
+    # 이미지 메모리에 저장
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    # Base64 인코딩
+    base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    
+    return f"data:image/png;base64,{base64_image}"
+
+
 
 
 

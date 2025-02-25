@@ -358,8 +358,8 @@ def generate_image_with_text_remove_background(
             elif use_option == '인스타그램 스토리' or use_option == '문자메시지' or use_option == '카카오톡' or use_option == '네이버 블로그':
                 if title == '이벤트':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
-                    image1, image2, image3, image4 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
-                    images_list.extend([image1, image2, image3, image4])
+                    image1, image2, image3, image4, image5 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
+                    images_list.extend([image1, image2, image3, image4, image5])
                 elif title == '매장 소개':
                     # 서비스 레이어 호출 (Base64 이미지 반환)
                     image1, image2, image4, image5, image6, image7 = service_combine_ads_4_7(store_name, road_name, copyright, title, image_width, image_height, pil_image, weather, tag)
@@ -673,10 +673,10 @@ def generate_template(request: AdsTemplateRequest):
                 elif request.use_option == '인스타그램 스토리' or request.use_option == '문자메시지' or request.use_option == '카카오톡':
                     if request.title == '이벤트':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
-                        image1, image2, image3, image4 = service_combine_ads_4_7(
+                        image1, image2, image3, image4, image5 = service_combine_ads_4_7(
                             request.store_name, request.road_name, copyright, request.title, image_width, image_height, img, request.weather, request.tag
                         )
-                        images_list.extend([image1, image2, image3, image4])
+                        images_list.extend([image1, image2, image3, image4, image5])
                     elif request.title == '매장 소개':
                         # 서비스 레이어 호출 (Base64 이미지 반환)
                         image1, image2, image4, image5, image6, image7 = service_combine_ads_4_7(
@@ -742,6 +742,121 @@ def generate_template(request: AdsTemplateRequest):
         error_msg = f"Unexpected error while processing request: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+@router.post("/generate/template2")
+def generate_template(request: AdsTemplateRequest):
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+            if request.title == '이벤트':
+                copyright_prompt = f'''
+                    {request.store_name} 업체의 {request.use_option} 위한 광고 컨텐츠를 제작하려고 합니다.
+                    {request.tag}, {formattedToday}, {request.weather}, {request.temp}℃, {request.detail_content}
+                    핵심 고객 연령대 : {request.male_base}, {request.female_base} 제목 :, 내용 : 형식으로 작성해주세요
+                '''
+            else:
+                copyright_prompt = f'''
+                    {request.store_name} 업체의 {request.use_option} 위한 광고 컨텐츠를 제작하려고 합니다.
+                    {request.tag}, {formattedToday}, {request.weather}, {request.temp}℃, {request.detail_content}
+                    핵심 고객 연령대 : {request.male_base}, {request.female_base} 내용 15자 이내로 작성해주세요
+            '''
+
+            copyright = service_generate_content(
+                copyright_prompt,
+                request.gpt_role,
+                request.detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+        
+        # 전달받은 선택한 템플릿의 시드 프롬프트 gpt 로 소분류 바꾸기
+        seed_image_prompt = request.seed_prompt
+
+        # 이미지 생성
+        try:
+            if request.ai_model_option == 'midJouney':
+                origin_image = service_generate_image_mid(
+                    request.use_option,
+                    seed_image_prompt
+                )
+            elif request.ai_model_option == "imagen3":
+                origin_image = service_generate_image_imagen3_template(
+                    request.use_option,
+                    copyright,
+                    request.tag,
+                    seed_image_prompt
+                )
+            else:
+                origin_image = service_generate_image(
+                    request.use_option,
+                    seed_image_prompt
+                )
+
+            output_images = []
+            for image in origin_image:  # 리스트의 각 이미지를 순회
+                buffer = BytesIO()
+                image.save(buffer, format="PNG")  # 이미지 저장
+                buffer.seek(0)
+                
+                # Base64 인코딩 후 리스트에 추가
+                output_images.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
+
+        except Exception as e:
+            print(f"Error occurred: {e}, 이미지 생성 오류")
+
+        # 인스타 문구 테스트
+        try:
+            insta_copyright = ''
+            
+            if request.use_option == '인스타그램 피드':
+                today = datetime.now()
+                formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+                copyright_prompt = f'''
+                    {request.store_name} 업체의 {request.title}를 위한 광고 콘텐츠를 제작하려고 합니다. 
+                    업종: {request.tag}
+                    세부정보 : {request.detail_content}
+                    일시 : {formattedToday}
+                    오늘날씨 : {request.weather}, {request.temp}℃
+                    핵심고객: 
+                    매출이 가장 높은 남성 연령대 : 남자 {request.male_base}
+                    매출이 가장 높은 여성 연령대 : 여자 {request.female_base}
+
+
+                    주소: {request.road_name}
+                    
+                    단! "대표 메뉴 앞에 아이콘만 넣고, 메뉴 이름 뒤에는 아이콘을 넣지 않는다." "위치는 📍로, 영업시간은 🕒로 표현한다. 
+                    '\n'으로 문단을 나눠 표현한다
+                '''
+
+                insta_role = '''
+                    1. '{copyright}' 를 100~150자까지 {request.title} 인플루언서가 $대분류$ 을 소개하는 듯한 느낌으로 광고 문구 만들어줘 
+                    {request.title}에 광고할 타겟은 핵심 연령층으로 {request.title}에 어울리는 내용을 생성한다. 
+                    2.광고 타겟들이 흥미를 갖을만한 내용의 키워드를 뽑아서 검색이 잘 될만한 해시태그도 최소 3개에서 6개까지 생성한다
+                '''
+
+                insta_copyright = service_generate_content(
+                    copyright_prompt,
+                    insta_role,
+                    request.detail_content
+                )
+
+        except Exception as e:
+            print(f"Error occurred: {e}, 인스타 생성 오류")
+        
+        # 문구와 합성된 이미지 반환
+        return JSONResponse(content={"copyright": copyright, "origin_image": output_images, "insta_copyright" : insta_copyright})
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
 
 
 
