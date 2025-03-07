@@ -58,6 +58,8 @@ from app.service.ads_generate_test import (
     generate_image_imagen_test as service_generate_image_imagen_test,
     generate_image_remove_bg as service_generate_image_remove_bg,
     generate_image_remove_bg_free as service_generate_image_remove_bg_free,
+    generate_test_generate_video as service_generate_test_generate_video,
+    generate_test_generate_music as service_generate_test_generate_music
 )
 from app.service.ads_image_treat import (
     trat_image_turn as service_trat_image_turn
@@ -743,6 +745,8 @@ def generate_template(request: AdsTemplateRequest):
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
+
+# ver2 AI 생성
 @router.post("/generate/template2")
 def generate_template(request: AdsTemplateRequest):
     try:
@@ -858,6 +862,95 @@ def generate_template(request: AdsTemplateRequest):
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+# ver2 파일 업로드
+@router.post("/generate/exist/image/template2")
+def generate_image_with_text_template2(
+    store_name: str = Form(...),
+    road_name: str = Form(...),
+    tag: str = Form(...),
+    weather: str = Form(...),
+    temp: float = Form(...),
+    male_base: str = Form(...),
+    female_base: str = Form(...),
+    gpt_role: str = Form(...),
+    detail_content: str = Form(...),
+    use_option: str = Form(...),
+    title: str = Form(...),
+):
+
+    try:
+        # 문구 생성
+        try:
+            today = datetime.now()
+            formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+            copyright_prompt = f'''
+                매장명 : {store_name}
+                주소 : {road_name}
+                업종 : {tag}
+                날짜 : {formattedToday}
+                날씨 : {weather}, {temp}℃
+                매출이 가장 높은 남성 연령대 : {male_base}
+                매출이 가장 높은 여성 연령대 : {female_base}
+            '''
+            copyright = service_generate_content(
+                copyright_prompt,
+                gpt_role,
+                detail_content
+            )
+        except Exception as e:
+            print(f"Error occurred: {e}, 문구 생성 오류")
+
+    # 인스타 문구 테스트
+        try:
+            insta_copyright = ''
+            
+            if use_option == '인스타그램 피드':
+                today = datetime.now()
+                formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
+
+                copyright_prompt = f'''
+                    {store_name} 업체의 {title}를 위한 광고 콘텐츠를 제작하려고 합니다. 
+                    업종: {tag}
+                    세부정보 : {detail_content}
+                    일시 : {formattedToday}
+                    오늘날씨 : {weather}, {temp}℃
+                    핵심고객: 
+                    매출이 가장 높은 남성 연령대 : 남자 {male_base}
+                    매출이 가장 높은 여성 연령대 : 여자 {female_base}
+
+
+                    주소: {road_name}
+                    
+                    단! "대표 메뉴 앞에 아이콘만 넣고, 메뉴 이름 뒤에는 아이콘을 넣지 않는다." "위치는 📍로, 영업시간은 🕒로 표현한다. 
+                    '\n'으로 문단을 나눠 표현한다
+                '''
+
+                insta_role = '''
+                    1. '{copyright}' 를 100~150자까지 {request.title} 인플루언서가 $대분류$ 을 소개하는 듯한 느낌으로 광고 문구 만들어줘 
+                    {request.title}에 광고할 타겟은 핵심 연령층으로 {request.title}에 어울리는 내용을 생성한다. 
+                    2.광고 타겟들이 흥미를 갖을만한 내용의 키워드를 뽑아서 검색이 잘 될만한 해시태그도 최소 3개에서 6개까지 생성한다
+                '''
+
+                insta_copyright = service_generate_content(
+                    copyright_prompt,
+                    insta_role,
+                    detail_content
+                )
+
+        except Exception as e:
+            print(f"Error occurred: {e}, 인스타 생성 오류")
+        
+        # 문구와 합성된 이미지 반환
+        return JSONResponse(content={"copyright": copyright, "insta_copyright" : insta_copyright})
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 
@@ -1569,5 +1662,52 @@ async def generate_image_remove_bg_free(
         raise HTTPException(status_code=500, detail=error_msg)
     
 
+
+# 영상 생성
+@router.post("/test/generate/video")
+async def generate_test_generate_video(
+    image: UploadFile = File(...),
+    prompt: str = Form(...),
+):
+    try:
+        # 이미지 업로드 처리 (PIL Image 변환)
+        input_image = Image.open(io.BytesIO(await image.read()))
+        
+        # 비디오 생성 서비스 호출
+        video_url = service_generate_test_generate_video(input_image, prompt)
+        
+        if not video_url:
+            raise HTTPException(status_code=500, detail="Failed to generate video")
+
+        return {"video_url": video_url}
     
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    
+
+    
+
+
+@router.post("/test/generate/music")
+def generate_test_generate_music(request: AdsContentNewRequest):
+    try:
+        # 음악 생성
+        music = service_generate_test_generate_music(request.prompt)
+        if not music:
+            raise HTTPException(status_code=500, detail="Music generation failed")
+        
+        return {"music": music}
+
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 

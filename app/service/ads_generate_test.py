@@ -52,7 +52,6 @@ def generate_image_stable(prompt: str,):
 
 # 달리 이미지 생성
 def generate_image_dalle(prompt: str, ratio: str):
-
     try:
         size_mapping = {
             "1:1": "1024x1024",
@@ -257,6 +256,7 @@ def generate_image_remove_bg(image):
     
 # 배경 제거 2
 def generate_image_remove_bg_free(image):
+
     output_image = remove(image)
 
     # 메모리에서 바로 반환 (저장 X)
@@ -265,3 +265,86 @@ def generate_image_remove_bg_free(image):
     img_io.seek(0)  # 스트림의 시작 위치로 이동
 
     return StreamingResponse(img_io, media_type="image/png")
+
+
+
+    
+# 영상 생성
+def generate_test_generate_video(image: Image.Image, prompt: str):
+    """업로드된 이미지를 저장 후, RunwayML을 호출하여 비디오 생성 후 원본 이미지 삭제"""
+    
+    # API 키 가져오기
+    api_key = os.getenv("RUNWAYML_API_SECRET")
+    if not api_key:
+        raise ValueError("API key not found. Please check your .env file.")
+
+    # 이미지 저장 경로 설정
+    image_dir = "temp_images"
+    os.makedirs(image_dir, exist_ok=True)  # 폴더가 없으면 생성
+
+    image_path = os.path.join(image_dir, "uploaded_image.png")
+
+    # 이미지 저장
+    image.save(image_path, format="PNG")
+
+    try:
+        # RunwayML 클라이언트 초기화
+        client = RunwayML(api_key=api_key)
+
+        # 이미지 파일을 Base64로 인코딩
+        with open(image_path, "rb") as f:
+            base64_image = base64.b64encode(f.read()).decode("utf-8")
+
+        # RunwayML API 호출
+        task = client.image_to_video.create(
+            model='gen3a_turbo',
+            prompt_image=f"data:image/png;base64,{base64_image}",
+            prompt_text=prompt,
+        )
+
+        task_id = task.id
+        print("Task created. Polling for status...")
+
+        # 상태 확인 (비디오 생성이 완료될 때까지 대기)
+        while True:
+            task = client.tasks.retrieve(task_id)
+            if task.status in ['SUCCEEDED', 'FAILED']:
+                break
+            print(f"Task status: {task.status}. Retrying in 10 seconds...")
+            time.sleep(10)
+
+        # 최종 결과 확인
+        if task.status == 'SUCCEEDED':
+            print("Task succeeded!")
+            result_url = task.output[0]  # 결과 URL 반환
+        else:
+            print("Task failed.")
+            result_url = None
+
+    finally:
+        # 사용이 끝난 이미지 삭제
+        if os.path.exists(image_path):
+            os.remove(image_path)
+            print(f"Deleted temp image: {image_path}")
+
+    return result_url
+
+
+def generate_test_generate_music(prompt):
+    load_dotenv()
+    api_key = os.getenv("FACE_KEY")
+    API_URL = "https://api-inference.huggingface.co/models/facebook/musicgen-small"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    
+    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+    if response.status_code == 200:
+        audio_bytes = response.content
+
+        # Base64 인코딩 (파일을 직접 반환하지 않는 경우)
+        encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
+
+        return encoded_audio
+    else:
+        error_msg = f"Error: {response.status_code}, {response.text}"
+        print(error_msg)
+        return None
