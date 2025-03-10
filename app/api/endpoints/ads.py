@@ -7,7 +7,7 @@ from app.schemas.ads import (
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
     AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta,
-    AdsDrawingModelTest, AdsTemplateRequest
+    AdsDrawingModelTest, AdsTemplateRequest, KaKaoTempInsert, KaKaoTempGet
 )
 from fastapi import Request, Body
 from PIL import Image, ImageOps
@@ -66,7 +66,7 @@ from app.service.ads_image_treat import (
 )
 
 
-
+import redis
 import traceback
 from fastapi.responses import JSONResponse
 from pathlib import Path
@@ -89,6 +89,9 @@ IMAGE_DIR = Path(os.getenv("IMAGE_DIR"))
 VIDEO_DIR = Path(os.getenv("VIDEO_PATH"))
 FULL_PATH = ROOT_PATH / IMAGE_DIR.relative_to("/") / "ads"
 FULL_PATH.mkdir(parents=True, exist_ok=True)
+
+
+redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 
 # 매장 리스트에서 모달창 띄우기
@@ -1314,6 +1317,26 @@ async def upload_ads(
         "content": content,
         "final_image_url": final_image_url
     }
+
+# 카카오톡 업로드
+@router.post("/temp/insert")
+def generate_share_uuid(data: KaKaoTempInsert):
+    unique_id = str(uuid.uuid4())[:8]  # 8자리 UUID 생성
+
+    # 🔹 Redis에 JSON 데이터 저장 (유효기간 7일)
+    redis_client.setex(unique_id, 86400 * 7, json.dumps(data.dict()))  
+    print(redis_client)
+    return {"shortUrl": f"{unique_id}"}
+
+
+@router.post("/temp/get")
+def get_share_data(request: KaKaoTempGet):
+    stored_data = redis_client.get(request.share_id)
+
+    if not stored_data:
+        raise HTTPException(status_code=404, detail="공유 데이터 없음")
+
+    return json.loads(stored_data)
 
 
 ROOT_PATH = os.getenv("ROOT_PATH")

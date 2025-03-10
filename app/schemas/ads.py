@@ -228,3 +228,16 @@ class AuthCallbackRequest(BaseModel):
 class AdsUploadVideoInsta(BaseModel):
     content: str
     video_path : str
+
+
+# 카카오 임시 저장
+class KaKaoTempInsert(BaseModel):
+    title: str
+    content: str
+    storeName: str
+    roadName: str
+    imageUrl: str
+
+# 카카오 임시 저장 데이터 불러오기
+class KaKaoTempGet(BaseModel):
+    share_id: str
