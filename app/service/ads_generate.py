@@ -279,19 +279,27 @@ def generate_image_imagen3_template(use_option, copyright, tag, seed_image_promp
 
     try:
         # gpt 영역
+        gpt_role = f"""
+            You are a professional prompt writing expert.
+        """
+
         gpt_content = f"""
-            주어진 프롬프트 스타일로 {copyright}와 {tag} 내용으로 변경해서 영문 프롬프트를 작성해주세요.
+            주어진 프롬프트 스타일은 유지하며 {copyright}와 {tag}에 맞게 내용만 바꿔 영문 프롬프트를 작성해주세요.
         """    
-        content = seed_image_prompt
+        # print(f"시드 프롬프트 : {seed_image_prompt}")
+
+        content = seed_image_prompt + gpt_content
         client = OpenAI(api_key=os.getenv("GPT_KEY"))
         completion = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": gpt_content},
+                {"role": "system", "content": gpt_role},
                 {"role": "user", "content": content},
             ],
         )
         tag_image_prompt = completion.choices[0].message.content
+        # print(f"생성 프롬프트 : {tag_image_prompt}")
+
     except Exception as e:
         return {"error": f"seed 프롬프트 변경 중 오류 발생: {e}"}
     try:
