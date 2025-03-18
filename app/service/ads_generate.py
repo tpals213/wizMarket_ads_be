@@ -110,6 +110,33 @@ def generate_claude_content(
 api_key = os.getenv("GPT_KEY")
 client = OpenAI(api_key=api_key)
 
+# 이미지 분석
+def generate_image_vision(exmaple_image):
+    client = OpenAI(api_key=os.getenv("GPT_KEY"))
+
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    { "type": "text", "text": "Analyze the image" },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": exmaple_image,
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    seed_image_vision = completion.choices[0].message.content
+    return seed_image_vision
+
+
+
 # 미드저니 이미지 생성
 def generate_image_mid(
     use_option, ai_prompt
@@ -275,7 +302,7 @@ def generate_image_imagen3(use_option, ai_prompt):
 
 
 # IMAGEN3 이미지 생성
-def generate_image_imagen3_template(use_option, copyright, tag, seed_image_prompt):
+def generate_image_imagen3_template(use_option, copyright, tag, seed_image_prompt, seed_image_vision):
 
     try:
         # gpt 영역
@@ -284,11 +311,13 @@ def generate_image_imagen3_template(use_option, copyright, tag, seed_image_promp
         """
 
         gpt_content = f"""
-            주어진 프롬프트 스타일은 유지하며 {copyright}와 {tag}에 맞게 내용만 바꿔 영문 프롬프트를 작성해주세요.
+            이미지 분석 결과 : {seed_image_vision}
+            프롬프트 스타일 : {seed_image_prompt}
+            주어진 이미지 분석 결과와 프롬프트 스타일은 유지하며 {copyright}와 {tag}에 맞게 내용만 바꿔 영문 프롬프트를 작성해주세요.
         """    
         # print(f"시드 프롬프트 : {seed_image_prompt}")
 
-        content = seed_image_prompt + gpt_content
+        content = gpt_content
         client = OpenAI(api_key=os.getenv("GPT_KEY"))
         completion = client.chat.completions.create(
             model="gpt-4o",

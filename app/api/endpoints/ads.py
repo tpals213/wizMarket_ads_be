@@ -7,7 +7,7 @@ from app.schemas.ads import (
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
     AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta,
-    AdsDrawingModelTest, AdsTemplateRequest, KaKaoTempInsert, KaKaoTempGet
+    AdsDrawingModelTest, AdsTemplateRequest, KaKaoTempInsert, KaKaoTempGet, AdsTemplateSeedImage
 )
 from fastapi import Request, Body
 from PIL import Image, ImageOps
@@ -32,7 +32,8 @@ from app.service.ads_generate import (
     generate_image_mid as service_generate_image_mid,
     generate_add_text_to_video as service_generate_add_text_to_video,
     generate_image_imagen3  as service_generate_image_imagen3,
-    generate_image_imagen3_template as service_generate_image_imagen3_template
+    generate_image_imagen3_template as service_generate_image_imagen3_template,
+    generate_image_vision as service_generate_image_vision
 )
 from app.service.ads_upload import (
     upload_story_ads as service_upload_story_ads,
@@ -751,10 +752,11 @@ def generate_template(request: AdsTemplateRequest):
 
 # ver2 AI 생성
 @router.post("/generate/template2")
-def generate_template(request: AdsTemplateRequest):
+def generate_template(request: AdsTemplateSeedImage):
     try:
         # 문구 생성
         try:
+            # print(request.example_image)
             today = datetime.now()
             formattedToday = today.strftime('%Y-%m-%d (%A) %H:%M')
             if request.title == '이벤트':
@@ -778,8 +780,11 @@ def generate_template(request: AdsTemplateRequest):
         except Exception as e:
             print(f"Error occurred: {e}, 문구 생성 오류")
         
-        # 전달받은 선택한 템플릿의 시드 프롬프트 gpt 로 소분류 바꾸기
+        # 전달받은 선택한 템플릿의 시드 프롬프트 gpt로 소분류에 맞게 바꾸기
         seed_image_prompt = request.seed_prompt
+
+        # 전달받은 선택한 템플릿의 시드 이미지 gpt로 이미지 분석
+        seed_image_vision = service_generate_image_vision(request.example_image)
 
         # 이미지 생성
         try:
@@ -793,7 +798,8 @@ def generate_template(request: AdsTemplateRequest):
                     request.use_option,
                     copyright,
                     request.tag,
-                    seed_image_prompt
+                    seed_image_prompt,
+                    seed_image_vision
                 )
             else:
                 origin_image = service_generate_image(

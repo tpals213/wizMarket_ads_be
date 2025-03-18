@@ -162,6 +162,23 @@ class AdsTemplateRequest(BaseModel):
     seed_prompt : str
     detail_content: Optional[str]
 
+# 시드 이미지 전달 테스트
+class AdsTemplateSeedImage(BaseModel):
+    gpt_role: str
+    weather: str
+    temp: float
+    male_base: str
+    female_base: str
+    store_name: str
+    road_name: str
+    tag: str
+    use_option: str
+    title: str
+    ai_model_option: str
+    seed_prompt : str
+    detail_content: Optional[str]
+    example_image: str
+
 
 # 테스트 문구 생성
 class AdsContentNewRequest(BaseModel):
