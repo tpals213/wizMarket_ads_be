@@ -1741,3 +1741,12 @@ def generate_test_generate_bg(request : AdsContentRequest):
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
+
+@router.post("/test/callback")
+async def callback(request: Request):
+    data = await request.json()  # Suno API가 보낸 JSON 데이터 받기
+    print("Callback Data:", data)  # 데이터 확인 (로그 출력)
+
+    # 여기서 필요한 처리를 하면 됨 (DB 저장, React에 전달 등)
+    
+    return {"status": "received"}  # Suno API에 응답
