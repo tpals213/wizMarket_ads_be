@@ -354,7 +354,7 @@ def generate_test_generate_bg(url, type, prompt):
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'X-API-KEY': 'sk_2f0c48cb1efe4b94913b203a760e356f'
+        'X-API-KEY': os.getenv("PIXEL_API_KEY")  # 환경 변수에서 API 키 가져오기
     }
 
     response = requests.post(api_url, headers=headers, data=payload)
