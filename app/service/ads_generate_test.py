@@ -14,7 +14,7 @@ from rembg import remove
 from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types
-
+import json
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -330,21 +330,35 @@ def generate_test_generate_video(image: Image.Image, prompt: str):
     return result_url
 
 
-def generate_test_generate_music(prompt):
-    load_dotenv()
-    api_key = os.getenv("FACE_KEY")
-    API_URL = "https://api-inference.huggingface.co/models/facebook/musicgen-small"
-    headers = {"Authorization": f"Bearer {api_key}"}
-    
-    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-    if response.status_code == 200:
-        audio_bytes = response.content
+def generate_test_generate_bg(url, type, prompt):
+    api_url = "https://api.developer.pixelcut.ai/v1/generate-background"
 
-        # Base64 인코딩 (파일을 직접 반환하지 않는 경우)
-        encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
+    payload_data = {
+        "image_url": url,
+        "image_transform": {
+            "scale": 1,
+            "x_center": 0.5,
+            "y_center": 0.5
+        }
+    }
 
-        return encoded_audio
+    if type == "style":
+        payload_data["scene"] = prompt  # 스타일 모드일 때 scene 사용
     else:
-        error_msg = f"Error: {response.status_code}, {response.text}"
-        print(error_msg)
-        return None
+        p_prompt, n_prompt = map(str.strip, prompt.split("|"))
+        payload_data["prompt"] = p_prompt
+        payload_data["negative_prompt"] = n_prompt
+
+    payload = json.dumps(payload_data)
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-API-KEY': 'sk_2f0c48cb1efe4b94913b203a760e356f'
+    }
+
+    response = requests.post(api_url, headers=headers, data=payload)
+    response_json = response.json()  # JSON 형식으로 응답 파싱
+    result_url = response_json.get("result_url")  # "result_url"만 추출
+    image = result_url
+    return image

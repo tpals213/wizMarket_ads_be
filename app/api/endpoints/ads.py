@@ -60,7 +60,7 @@ from app.service.ads_generate_test import (
     generate_image_remove_bg as service_generate_image_remove_bg,
     generate_image_remove_bg_free as service_generate_image_remove_bg_free,
     generate_test_generate_video as service_generate_test_generate_video,
-    generate_test_generate_music as service_generate_test_generate_music
+    generate_test_generate_bg as service_generate_test_generate_bg
 )
 from app.service.ads_image_treat import (
     trat_image_turn as service_trat_image_turn
@@ -1722,16 +1722,17 @@ async def generate_test_generate_video(
     
 
 
-@router.post("/test/generate/music")
-def generate_test_generate_music(request: AdsContentNewRequest):
-    try:
-        # 음악 생성
-        music = service_generate_test_generate_music(request.prompt)
-        if not music:
-            raise HTTPException(status_code=500, detail="Music generation failed")
+@router.post("/test/generate/bg")
+def generate_test_generate_bg(request : AdsContentRequest):
+    try:       
+        # 비디오 생성 서비스 호출
+        image = service_generate_test_generate_bg(request.prompt, request.gpt_role, request.detail_content)
         
-        return {"music": music}
+        if not image:
+            raise HTTPException(status_code=500, detail="Failed to generate video")
 
+        return {"image": image}
+    
     except HTTPException as http_ex:
         logger.error(f"HTTP error occurred: {http_ex.detail}")
         raise http_ex
