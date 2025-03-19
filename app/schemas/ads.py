@@ -258,3 +258,7 @@ class KaKaoTempInsert(BaseModel):
 # 카카오 임시 저장 데이터 불러오기
 class KaKaoTempGet(BaseModel):
     share_id: str
+
+# 음악 생성 데이터 불러오기
+class MusicGet(BaseModel):
+    taskId: str

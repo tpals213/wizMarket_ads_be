@@ -7,7 +7,8 @@ from app.schemas.ads import (
     AdsGenerateImageOutPut, AdsImageRequest,
     AdsDeleteRequest, AdsContentNewRequest, AuthCallbackRequest,
     AdsTestRequest, AdsSuggestChannelRequest, AdsImageTestFront, AdsUploadVideoInsta,
-    AdsDrawingModelTest, AdsTemplateRequest, KaKaoTempInsert, KaKaoTempGet, AdsTemplateSeedImage
+    AdsDrawingModelTest, AdsTemplateRequest, KaKaoTempInsert, KaKaoTempGet, AdsTemplateSeedImage,
+    MusicGet
 )
 from fastapi import Request, Body
 from PIL import Image, ImageOps
@@ -1802,9 +1803,9 @@ async def callback(request: Request):
 
 # 4. taskID 로 레디스 조회 후 음악 url 리턴
 @router.post("/test/check/music")
-async def check_music(request: AdsContentNewRequest):
+async def check_music(request: MusicGet):
     # Redis에서 taskId로 저장된 데이터 가져오기
-    taskId = request.prompt
+    taskId = request.taskId  
     music_data = redis_client.get(taskId)
 
     if music_data:
