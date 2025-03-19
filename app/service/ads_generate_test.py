@@ -387,6 +387,7 @@ def generate_test_generate_lyrics(style, title):
 def generate_test_generate_music(lyrics, style, title):
     suno_api_key = os.getenv("SUNO_API_KEY")
     conn = http.client.HTTPSConnection("apibox.erweima.ai")
+    
     payload = json.dumps({
         "prompt": lyrics,
         "style": style,
@@ -397,14 +398,24 @@ def generate_test_generate_music(lyrics, style, title):
         "negativeTags": "Relaxing Piano",
         "callBackUrl": "http://221.151.48.225:58002/ads/test/callback"
     })
+    
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Authorization': f'Bearer {suno_api_key}'
     }
+    
+    # API 요청 보내기
     conn.request("POST", "/api/v1/generate", payload, headers)
     res = conn.getresponse()
+    
+    # 응답 데이터 읽기
     data = res.read()
-    response  = (data.decode("utf-8"))
+    
+    # 응답을 JSON 형식으로 변환
+    response = json.loads(data.decode("utf-8"))
+    print(response)
+    # task_id 추출
     task_id = response['data']['taskId']
+    
     return task_id

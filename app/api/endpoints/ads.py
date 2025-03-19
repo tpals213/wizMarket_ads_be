@@ -1802,8 +1802,9 @@ async def callback(request: Request):
 
 # 4. taskID 로 레디스 조회 후 음악 url 리턴
 @router.post("/test/check/music")
-async def check_music(taskId: str):
+async def check_music(request: AdsContentNewRequest):
     # Redis에서 taskId로 저장된 데이터 가져오기
+    taskId = request.prompt
     music_data = redis_client.get(taskId)
 
     if music_data:
