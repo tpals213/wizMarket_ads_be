@@ -60,7 +60,9 @@ from app.service.ads_generate_test import (
     generate_image_remove_bg as service_generate_image_remove_bg,
     generate_image_remove_bg_free as service_generate_image_remove_bg_free,
     generate_test_generate_video as service_generate_test_generate_video,
-    generate_test_generate_bg as service_generate_test_generate_bg
+    generate_test_generate_bg as service_generate_test_generate_bg,
+    generate_test_generate_music as service_generate_test_generate_music,
+    generate_test_generate_lyrics as service_generate_test_generate_lyrics
 )
 from app.service.ads_image_treat import (
     trat_image_turn as service_trat_image_turn
@@ -1331,7 +1333,7 @@ def generate_share_uuid(data: KaKaoTempInsert):
 
     # 🔹 Redis에 JSON 데이터 저장 (유효기간 7일)
     redis_client.setex(unique_id, 86400 * 7, json.dumps(data.dict()))  
-    print(redis_client)
+
     return {"shortUrl": f"{unique_id}"}
 
 
@@ -1719,9 +1721,7 @@ async def generate_test_generate_video(
         raise HTTPException(status_code=500, detail=error_msg)
     
 
-    
-
-
+# 배경 생성
 @router.post("/test/generate/bg")
 def generate_test_generate_bg(request : AdsContentRequest):
     try:       
@@ -1742,11 +1742,76 @@ def generate_test_generate_bg(request : AdsContentRequest):
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+
+
+
+
+##### 음악 생성 로직
+
+
+# 1. 가사 생성
+@router.post("/test/generate/lyrics")
+def generate_test_generate_lyrics(request : AdsDrawingModelTest):
+    try:       
+        # 비디오 생성 서비스 호출
+        lyrics = service_generate_test_generate_lyrics(request.prompt, request.ratio)
+        if not lyrics:
+            raise HTTPException(status_code=500, detail="Failed to generate video")
+        return {"lyrics": lyrics}
+    
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+
+# 2. 음악 생성
+@router.post("/test/generate/music")
+def generate_test_generate_music(request : AdsContentRequest):
+    try:       
+        # 비디오 생성 서비스 호출
+        task_id = service_generate_test_generate_music(request.prompt, request.gpt_role, request.detail_content)
+        if not task_id:
+            raise HTTPException(status_code=500, detail="Failed to generate video")
+        return {"task_id": task_id}
+    
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error occurred: {http_ex.detail}")
+        raise http_ex
+    except Exception as e:
+        error_msg = f"Unexpected error while processing request: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+# 3. 콜백으로 생성된 taskID 레디스 저장 후 리턴
 @router.post("/test/callback")
 async def callback(request: Request):
-    data = await request.json()  # Suno API가 보낸 JSON 데이터 받기
-    print("Callback Data:", data)  # 데이터 확인 (로그 출력)
+    data = await request.json()
+    task_id = data["data"]["task_id"]
+    audio_urls = [item["audio_url"] for item in data["data"]["data"]]  # 여러 개 가능
 
-    # 여기서 필요한 처리를 하면 됨 (DB 저장, React에 전달 등)
+    # Redis에 저장 (JSON 형식으로)
+    redis_client.set(task_id, json.dumps(audio_urls))
     
-    return {"status": "received"}  # Suno API에 응답
+    print(f"✅ 저장 완료: {task_id} -> {audio_urls}")
+    return {"status": "received"}
+
+# 4. taskID 로 레디스 조회 후 음악 url 리턴
+@router.post("/test/check/music")
+async def check_music(taskId: str):
+    # Redis에서 taskId로 저장된 데이터 가져오기
+    music_data = redis_client.get(taskId)
+
+    if music_data:
+        # Redis에 저장된 음악 데이터를 JSON 형태로 파싱
+        music_info = json.loads(music_data)
+
+        # 음악 정보 반환
+        return {"music": music_info}  # 음악 URL 및 관련 정보 반환
+    else:
+        # 데이터가 없는 경우 에러 처리
+        raise HTTPException(status_code=404, detail="Music not found or generation is still in progress.")

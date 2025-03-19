@@ -31,7 +31,6 @@ client = OpenAI(api_key=api_key)
 def generate_content(
     prompt, gpt_role, detail_content
 ):
-    
     # gpt 영역
     gpt_content = gpt_role
     content = prompt + '\n내용 : ' + detail_content

@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types
 import json
+import http.client
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -329,7 +330,7 @@ def generate_test_generate_video(image: Image.Image, prompt: str):
 
     return result_url
 
-
+# 배경 생성
 def generate_test_generate_bg(url, type, prompt):
     api_url = "https://api.developer.pixelcut.ai/v1/generate-background"
 
@@ -357,8 +358,53 @@ def generate_test_generate_bg(url, type, prompt):
         'X-API-KEY': os.getenv("PIXEL_API_KEY")  # 환경 변수에서 API 키 가져오기
     }
 
-    response = requests.post(api_url, headers=headers, data=payload)
-    response_json = response.json()  # JSON 형식으로 응답 파싱
-    result_url = response_json.get("result_url")  # "result_url"만 추출
-    image = result_url
-    return image
+    return requests.post(api_url, headers=headers, data=json.dumps(payload_data)).json().get("result_url")
+
+
+
+#### 음악 생성 ####
+# 1. 가사 생성
+def generate_test_generate_lyrics(style, title):
+    # gpt 영역
+    gpt_content = "You are a famous lyricist"
+    content = f'''
+        제목 : {title}
+        스타일 : {style}
+        이거에 맞게 영문으로 작사해줘. 가사만 딱 작성해줘 부가 요소 없이.
+    '''
+    client = OpenAI(api_key=os.getenv("GPT_KEY"))
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": gpt_content},
+            {"role": "user", "content": content},
+        ],
+    )
+    report = completion.choices[0].message.content
+    return report
+
+
+def generate_test_generate_music(lyrics, style, title):
+    suno_api_key = os.getenv("SUNO_API_KEY")
+    conn = http.client.HTTPSConnection("apibox.erweima.ai")
+    payload = json.dumps({
+        "prompt": lyrics,
+        "style": style,
+        "title": title,
+        "customMode": True,
+        "instrumental": False,
+        "model": "V3_5",
+        "negativeTags": "Relaxing Piano",
+        "callBackUrl": "http://221.151.48.225:58002/ads/test/callback"
+    })
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {suno_api_key}'
+    }
+    conn.request("POST", "/api/v1/generate", payload, headers)
+    res = conn.getresponse()
+    data = res.read()
+    response  = (data.decode("utf-8"))
+    task_id = response['data']['taskId']
+    return task_id
