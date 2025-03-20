@@ -370,7 +370,7 @@ def generate_test_generate_lyrics(style, title):
     content = f'''
         제목 : {title}
         스타일 : {style}
-        이거에 맞게 영문으로 작사해줘. 가사만 딱 작성해줘 부가 요소 없이.
+        이거에 맞게 영문으로 작사해줘. 가사만 3000자 이내로 딱 작성해줘 부가 요소 없이.
     '''
     client = OpenAI(api_key=os.getenv("GPT_KEY"))
     completion = client.chat.completions.create(
@@ -394,8 +394,8 @@ def generate_test_generate_music(lyrics, style, title):
         "title": title,
         "customMode": True,
         "instrumental": False,
-        "model": "V3_5",
-        "negativeTags": "Relaxing Piano",
+        "model": "V4",
+        "negativeTags": "",
         "callBackUrl": "http://221.151.48.225:58002/ads/test/callback"
     })
     

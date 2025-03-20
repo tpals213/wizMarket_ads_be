@@ -1768,8 +1768,6 @@ def generate_test_generate_lyrics(request : AdsDrawingModelTest):
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
-
-
 # 2. 음악 생성
 @router.post("/test/generate/music")
 def generate_test_generate_music(request : AdsContentRequest):
