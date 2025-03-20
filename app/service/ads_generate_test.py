@@ -394,7 +394,7 @@ def generate_test_generate_music(lyrics, style, title):
         "title": title,
         "customMode": True,
         "instrumental": False,
-        "model": "V4",
+        "model": "V3_5",
         "negativeTags": "",
         "callBackUrl": "http://221.151.48.225:58002/ads/test/callback"
     })
