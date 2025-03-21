@@ -1790,16 +1790,16 @@ def generate_test_generate_music(request : AdsContentRequest):
 @router.post("/test/callback")
 async def callback(request: Request):
     data = await request.json()
-    print("data: ", data)
+    # print("data: ", data)
     task_id = data["data"]["task_id"]
-    print("task_id: ", task_id)
+    # print("task_id: ", task_id)
     audio_urls = [item["audio_url"] for item in data["data"]["data"]]  # 여러 개 가능
-    print("audio_urls : ", audio_urls)
+    # print("audio_urls : ", audio_urls)
 
     # Redis에 저장 (JSON 형식으로)
     redis_client.set(task_id, json.dumps(audio_urls))
     
-    print(f"✅ 저장 완료: {task_id} -> {audio_urls}")
+    # print(f"✅ 저장 완료: {task_id} -> {audio_urls}")
     return {"status": "received"}
 
 # 4. taskID 로 레디스 조회 후 음악 url 리턴
